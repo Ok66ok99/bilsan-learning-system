@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const BilsanKidsApp());
 const rose = Color(0xFFB42D80), ink = Color(0xFF3F315A);
@@ -275,8 +276,46 @@ class MathPage extends StatefulWidget{
   State<MathPage> createState()=>_MathState();
 }
 class _MathState extends State<MathPage>{
-  int step=0,correct=0;
+  int step=0,correct=0,attempts=0;
   int? chosen;
+  bool loaded=false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    try {
+      final prefs=await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        step=prefs.getInt('math_step') ?? 0;
+        correct=prefs.getInt('math_correct') ?? 0;
+        attempts=prefs.getInt('math_attempts') ?? 0;
+        loaded=true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => loaded=true);
+    }
+  }
+
+  Future<void> _recordAnswer(bool isCorrect) async {
+    setState(() {
+      attempts++;
+      if (isCorrect) correct++;
+    });
+    final prefs=await SharedPreferences.getInstance();
+    await prefs.setInt('math_correct',correct);
+    await prefs.setInt('math_attempts',attempts);
+  }
+
+  Future<void> _nextQuestion() async {
+    setState(() {step++;chosen=null;});
+    final prefs=await SharedPreferences.getInstance();
+    await prefs.setInt('math_step',step);
+  }
   static const tasks=[(2,1),(3,2),(1,4),(5,1),(2,5)];
   @override
   Widget build(BuildContext context){
@@ -294,25 +333,26 @@ class _MathState extends State<MathPage>{
             Text('$a + $b = ؟',style:const TextStyle(color:rose,fontSize:42,fontWeight:FontWeight.w900)),
             Text('🍎 ' * a + ' + ' + '🍎 ' * b,textAlign:TextAlign.center,
               style:const TextStyle(fontSize:20)),
-            Text('إجابات صحيحة في هذه الجلسة: $correct'),
+            Text(loaded ? 'إجابات صحيحة محفوظة: $correct من $attempts' : 'جار تحميل التقدم...'),
           ]))),
         const SizedBox(height:16),
         ...options.map((n)=>Padding(
           padding:const EdgeInsets.only(bottom:10),
           child:FilledButton.tonal(
-            onPressed:chosen==null?()=>setState((){
-              chosen=n;if(n==result)correct++;
-            }):null,
+            onPressed:!loaded||chosen!=null?null:(){
+              setState(()=>chosen=n);
+              _recordAnswer(n==result);
+            },
             child:Text('$n',style:const TextStyle(fontSize:24))),
         )),
         if(chosen!=null) ...[
           Text(chosen==result?'أحسنتِ يا بطلة! ⭐':'حاولي مرة أخرى في السؤال القادم 🌷',
             textAlign:TextAlign.center,style:const TextStyle(color:navy,fontSize:19)),
-          FilledButton(onPressed:()=>setState((){if(chosen==result)step++;chosen=null;}),
+          FilledButton(onPressed:chosen==result ? _nextQuestion : ()=>setState(()=>chosen=null),
             child:Text(chosen==result?'السؤال التالي':'حاولي مرة أخرى')),
         ],
         const SizedBox(height:16),
-        const Text('النتيجة مؤقتة؛ حفظ التقدم والمزامنة من المرحلة التالية.',
+        const Text('يُحفظ التقدم على هذا الجهاز فقط. المزامنة مع تطبيق الأب غير مفعّلة.',
           textAlign:TextAlign.center,style:TextStyle(fontSize:12)),
       ]));
   }
