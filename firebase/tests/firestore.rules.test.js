@@ -113,3 +113,26 @@ test('approved child can resume a queued monotonic progress update after reconne
     deviceUid: 'child-a', completedCount: 1, updatedAt: serverTimestamp(),
   }, { merge: true }));
 });
+
+test('Firebase client queues offline progress and commits it after network returns', async () => {
+  const db = env.authenticatedContext('child-a').firestore();
+  const ref = db.doc('families/family-a/progress/child-a');
+  await db.disableNetwork();
+  let acknowledged = false;
+  const write = ref.set({
+    deviceUid: 'child-a', completedCount: 9, updatedAt: serverTimestamp(),
+  }).then(() => { acknowledged = true; });
+  // The write must not be acknowledged by the emulator while disconnected.
+  await new Promise(resolve => setTimeout(resolve, 200));
+  expect(acknowledged).toBe(false);
+  await db.enableNetwork();
+  await Promise.race([
+    write,
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error('Firestore offline write did not sync after reconnect')), 8000)),
+  ]);
+  expect(acknowledged).toBe(true);
+  const parent = env.authenticatedContext('parent-a').firestore();
+  const saved = await parent.doc('families/family-a/progress/child-a').get();
+  expect(saved.data().completedCount).toBe(9);
+});
