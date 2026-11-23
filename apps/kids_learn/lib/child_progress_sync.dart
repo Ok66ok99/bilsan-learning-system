@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,7 +13,14 @@ class ChildProgressSync {
     final prefs = await SharedPreferences.getInstance();
     final pending = prefs.getInt(_pendingKey) ?? 0;
     await prefs.setInt(_pendingKey, total > pending ? total : pending);
-    await flushPending();
+    // Never block a child's lesson while Firestore waits for reconnection.
+    try {
+      await flushPending().timeout(const Duration(seconds: 3));
+    } on TimeoutException {
+      // Local pending progress is retained for the next approved session.
+    } on FirebaseException {
+      // Local pending progress is retained; the access gate revalidates approval.
+    }
   }
 
   static Future<void> flushPending() async {
@@ -39,6 +47,7 @@ class ChildProgressSync {
       if (e.code == 'permission-denied') {
         // Force a fresh pairing status check; do not repeatedly retry revoked access.
         await prefs.remove('approved_family_id');
+        await prefs.remove(_pendingKey);
       }
       rethrow;
     }
