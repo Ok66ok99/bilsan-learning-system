@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_authentication.dart';
+import 'drawings_gallery.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -184,8 +185,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                   DashboardAction(Icons.mail_rounded,'بطاقة تشجيع',
                     const Color(0xFFFFDAE9),()=>open(const GreetingCardEditor())),
                   DashboardAction(Icons.palette_rounded,'رسومات طفلتي',
-                    const Color(0xFFF0E6FA),()=>open(const InformationScreen(
-                      'رسومات طفلتي','ستظهر رسومات بيلسان المحفوظة بعد تفعيل المزامنة.'))),
+                    const Color(0xFFF0E6FA),()=>open(const DrawingsGallery())),
                 ],
               ),
               const SizedBox(height: 19),
