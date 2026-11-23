@@ -208,7 +208,7 @@ class LettersPage extends StatefulWidget {
 class _LettersState extends State<LettersPage>{
   static const chars='أبتثجحخدذرزسشصضطظعغفقكلمنهوي';
   static const examples=['أسد','بطة','تفاح','ثعلب','جمل','حصان','خبز','دب','ذرة','رمان','زهرة','سمكة',
-    'شمس','صقر','ضفدع','طائرة','ظرف','عصفور','غزال','فراشة','قمر','قطة','كتاب','ليمون','موز','نحلة','هلال','وردة','يد'];
+    'شمس','صقر','ضفدع','طائرة','ظرف','عصفور','غزال','فراشة','قمر','كتاب','ليمون','موز','نحلة','هلال','وردة','يد'];
   int selected=0;
   @override
   Widget build(BuildContext context)=>LessonShell(title:'الحروف الهجائية',
@@ -283,6 +283,7 @@ class _MathState extends State<MathPage>{
     final a=tasks[step%tasks.length].$1;
     final b=tasks[step%tasks.length].$2;
     final result=a+b;
+    final options=[result,result+1,math.max(result-1,0)]..shuffle(math.Random(step+19));
     return LessonShell(title:'صديق الأرقام',child:ListView(
       padding:const EdgeInsets.all(18),children:[
         const Text('هيا نجمع التفاحات! 🍎',textAlign:TextAlign.center,
@@ -296,7 +297,7 @@ class _MathState extends State<MathPage>{
             Text('إجابات صحيحة في هذه الجلسة: $correct'),
           ]))),
         const SizedBox(height:16),
-        ...[result,result+1,math.max(result-1,0)].map((n)=>Padding(
+        ...options.map((n)=>Padding(
           padding:const EdgeInsets.only(bottom:10),
           child:FilledButton.tonal(
             onPressed:chosen==null?()=>setState((){
@@ -307,8 +308,8 @@ class _MathState extends State<MathPage>{
         if(chosen!=null) ...[
           Text(chosen==result?'أحسنتِ يا بطلة! ⭐':'حاولي مرة أخرى في السؤال القادم 🌷',
             textAlign:TextAlign.center,style:const TextStyle(color:navy,fontSize:19)),
-          FilledButton(onPressed:()=>setState((){step++;chosen=null;}),
-            child:const Text('السؤال التالي')),
+          FilledButton(onPressed:()=>setState((){if(chosen==result)step++;chosen=null;}),
+            child:Text(chosen==result?'السؤال التالي':'حاولي مرة أخرى')),
         ],
         const SizedBox(height:16),
         const Text('النتيجة مؤقتة؛ حفظ التقدم والمزامنة من المرحلة التالية.',
