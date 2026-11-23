@@ -29,6 +29,8 @@ test('complete pairing, unauthorized parent, revocation, and Gemini disabled', a
   await assert.rejects(call('approvePairing',
     {familyId:foreign.familyId,code:issued.code},parent));
   await call('approvePairing',{familyId:family.familyId,code:issued.code},parent);
+  const wrongFamily = await call('verifyDeviceAccess',{familyId:foreign.familyId},child);
+  assert.equal(wrongFamily.approved,false);
   const after = await call('verifyDeviceAccess',{familyId:family.familyId},child);
   assert.equal(after.approved,true);
   const status = await call('getPairingStatus',{code:issued.code},child);
@@ -36,6 +38,8 @@ test('complete pairing, unauthorized parent, revocation, and Gemini disabled', a
   assert.equal(status.familyId,family.familyId);
   await assert.rejects(call('childLearningHint',
     {familyId:family.familyId,topic:'letters'},child), /permission-denied|disabled/);
+  await assert.rejects(call('childLearningHint',
+    {familyId:family.familyId,topic:'unrestricted-chat'},child));
   await call('setLearningHintsEnabled',{familyId:family.familyId,enabled:true},parent);
   await call('setLearningHintsEnabled',{familyId:family.familyId,enabled:false},parent);
   await assert.rejects(call('childLearningHint',
