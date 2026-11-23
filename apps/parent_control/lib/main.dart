@@ -156,7 +156,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                     style:TextStyle(fontSize:13,fontWeight:FontWeight.w700,color:navy))),
                 ])),
             ]),
-          )))),
+          ))),
         ),
       ),
     );
@@ -198,7 +198,7 @@ class _ActionState extends State<DashboardAction> {
   bool pressed=false;
   @override
   Widget build(BuildContext context)=>AnimatedScale(
-    scale:pressed?.97:1,duration:const Duration(milliseconds:120),
+    scale:pressed ? 0.97 : 1,duration:const Duration(milliseconds:120),
     child:Material(color:Colors.transparent,child:InkWell(
       onTap:widget.onTap,onHighlightChanged:(v)=>setState(()=>pressed=v),
       borderRadius:BorderRadius.circular(22),
