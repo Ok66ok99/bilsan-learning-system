@@ -16,6 +16,8 @@ class ChildAccessGate extends StatefulWidget {
 }
 class _ChildAccessGateState extends State<ChildAccessGate>
     with WidgetsBindingObserver {
+  Timer? approvalTimer;
+  bool verificationRunning = false;
   bool approved = false;
   bool checking = true;
   String message = 'جارٍ التحقق من موافقة ولي الأمر...';
@@ -24,9 +26,11 @@ class _ChildAccessGateState extends State<ChildAccessGate>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     verify();
+    approvalTimer = Timer.periodic(const Duration(seconds: 60), (_) => verify());
   }
   @override
   void dispose() {
+    approvalTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -35,7 +39,8 @@ class _ChildAccessGateState extends State<ChildAccessGate>
     if (state == AppLifecycleState.resumed) verify();
   }
   Future<void> verify() async {
-    if (!mounted) return;
+    if (!mounted || verificationRunning) return;
+    verificationRunning = true;
     setState(() { approved = false; checking = true; });
     try {
       if (!ChildFirebase.configured) {
@@ -73,6 +78,7 @@ class _ChildAccessGateState extends State<ChildAccessGate>
       if (mounted) setState(() => message =
           'تعذر التحقق من صلاحية الجهاز. اتصل بالإنترنت وأعد المحاولة.');
     } finally {
+      verificationRunning = false;
       if (mounted) setState(() => checking = false);
     }
   }
