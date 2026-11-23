@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'child_pairing.dart';
 import 'child_progress_sync.dart';
+import 'device_access_policy.dart';
 
 /// Fail-closed access gate: a saved family ID is never authorization.
 class ChildAccessGate extends StatefulWidget {
@@ -48,8 +49,10 @@ class _ChildAccessGateState extends State<ChildAccessGate>
       }
       final result = await FirebaseFunctions.instanceFor(region: 'us-central1')
           .httpsCallable('verifyDeviceAccess').call({'familyId': familyId});
-      final allowed = (result.data as Map)['approved'] == true;
-      if (!allowed) {
+      final verification = DeviceAccessPolicy.fromServerResponse(
+          (result.data as Map)['approved']);
+      final allowed = DeviceAccessPolicy.canOpenLessons(verification);
+      if (DeviceAccessPolicy.clearLocalAuthorization(verification)) {
         await prefs.remove('approved_family_id');
         await prefs.remove('math_progress_pending');
       }
