@@ -105,3 +105,24 @@ exports.revokeDevice = onCall(options, async request => {
 
 // Child pairing status requires a server-issued family-scoped lookup token.
 // Do not implement an unscoped collection-group scan for device UIDs.
+
+exports.getPairingStatus = onCall(options, async request => {
+  const uid = uidOf(request);
+  if (request.auth.token.firebase?.sign_in_provider !== 'anonymous')
+    throw new HttpsError('permission-denied', 'Child session required');
+  const code = requireString(request.data?.code, 'code', 8);
+  if (!/^\\d{8}$/.test(code)) throw new HttpsError('invalid-argument', 'Invalid code');
+  const hash = crypto.createHash('sha256').update(code).digest('hex');
+  const pair = await db.doc('pairingRequests/' + hash).get();
+  if (!pair.exists || pair.get('deviceUid') !== uid)
+    throw new HttpsError('permission-denied', 'Not your pairing request');
+  if (pair.get('expiresAt').toMillis() <= Date.now() && pair.get('status') === 'pending')
+    return { status: 'expired' };
+  if (pair.get('status') !== 'approved') return { status: pair.get('status') };
+  const familyId = pair.get('familyId');
+  const device = await db.doc('families/' + familyId + '/devices/' + uid).get();
+  return { status: device.exists && device.get('approved') === true &&
+    device.get('revoked') !== true ? 'approved' : 'revoked',
+    familyId: device.exists && device.get('approved') === true &&
+      device.get('revoked') !== true ? familyId : null };
+});
