@@ -1,0 +1,31 @@
+name: Phase 2 Firestore Security
+on:
+  push:
+    branches: [development/bilsan-v1]
+    paths:
+      - 'firebase/**'
+      - '.github/workflows/firebase-security.yml'
+  pull_request:
+    paths:
+      - 'firebase/**'
+      - '.github/workflows/firebase-security.yml'
+permissions:
+  contents: read
+jobs:
+  deny-by-default-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: firebase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:rules
