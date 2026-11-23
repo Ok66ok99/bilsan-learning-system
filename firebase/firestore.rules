@@ -32,6 +32,23 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      // Drawings are readable only by the parent or their owning approved child.
+      // The document ID is the child's UID, preventing cross-device writes.
+      // A bounded list of normalized strokes is stored as Firestore data.
+      match /drawings/{deviceUid} {
+        allow get: if owner(familyId) ||
+          (approvedChild(familyId) && deviceUid == request.auth.uid);
+        allow list: if owner(familyId);
+        allow create, update: if approvedChild(familyId)
+          && deviceUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['deviceUid', 'items', 'updatedAt'])
+          && request.resource.data.deviceUid == request.auth.uid
+          && request.resource.data.items is list
+          && request.resource.data.items.size() <= 20
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+
       match /progress/{progressId} {
         allow get: if owner(familyId) || (approvedChild(familyId) && progressId == request.auth.uid);
         allow list: if owner(familyId);
