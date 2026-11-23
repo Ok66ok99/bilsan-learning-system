@@ -170,6 +170,16 @@ exports.childLearningHint = onCall({
   const device = await db.doc('families/' + familyId + '/devices/' + uid).get();
   if (!device.exists || device.get('approved') !== true || device.get('revoked') === true)
     throw new HttpsError('permission-denied', 'Parent approval required');
+  const limitRef = db.doc('learningHintLimits/' + uid);
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(limitRef);
+    const now = Date.now();
+    const last = snap.exists ? snap.get('windowStartedAt')?.toMillis() ?? 0 : 0;
+    const count = now - last < 60 * 60 * 1000 ? snap.get('count') ?? 0 : 0;
+    if (count >= 12) throw new HttpsError('resource-exhausted', 'Learning hint limit reached');
+    tx.set(limitRef, { count: count + 1,
+      windowStartedAt: admin.firestore.Timestamp.fromMillis(count === 0 ? now : last) });
+  });
   const key = geminiKey.value();
   if (!key) throw new HttpsError('failed-precondition', 'Gemini is not configured');
   // No free-form prompts or identifying child data are forwarded to Gemini.
