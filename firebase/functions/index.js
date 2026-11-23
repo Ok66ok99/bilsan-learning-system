@@ -68,8 +68,17 @@ exports.approvePairing = onCall(options, async request => {
   const familyRef = await parentFamily(uid, familyId);
   const hash = crypto.createHash('sha256').update(code).digest('hex');
   const pairRef = db.doc('pairingRequests/' + hash);
+  const attemptsRef = db.doc('pairingAttempts/' + uid);
   return db.runTransaction(async tx => {
+    const attempts = await tx.get(attemptsRef);
+    const now = Date.now();
+    const last = attempts.exists ? attempts.get('windowStartedAt')?.toMillis() ?? 0 : 0;
+    const count = now - last < 10 * 60 * 1000 ? attempts.get('count') ?? 0 : 0;
+    if (count >= 5) throw new HttpsError('resource-exhausted', 'Try again later');
     const pair = await tx.get(pairRef);
+    tx.set(attemptsRef, { count: count + 1,
+      windowStartedAt: admin.firestore.Timestamp.fromMillis(
+        count === 0 ? now : last) });
     if (!pair.exists || pair.get('status') !== 'pending' ||
         pair.get('expiresAt').toMillis() <= Date.now())
       throw new HttpsError('failed-precondition', 'Code expired or already used');
