@@ -34,7 +34,7 @@ class _ChildPairingPageState extends State<ChildPairingPage> {
   String? status;
   String? error;
   bool busy = false;
-  final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+  FirebaseFunctions get functions => FirebaseFunctions.instanceFor(region: 'us-central1');
 
   Future<void> requestCode() async {
     if (busy || !ChildFirebase.configured) return;
