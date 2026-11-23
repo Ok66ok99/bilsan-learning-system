@@ -40,7 +40,7 @@ function topicPrompt(topic) {
 function safeHint(data) {
   const hint = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof hint !== 'string' || !hint.trim()) return null;
-  const clean = hint.replace(/https?:\/\/\S+/gi, '').replace(/[\r\n]+/g, ' ').trim();
+  const clean = hint.replace(/https?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim();
   return clean ? clean.slice(0, 160) : null;
 }
 module.exports = { providerAllowed, validCode, codeHash, attemptWindow,
