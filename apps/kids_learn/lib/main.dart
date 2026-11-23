@@ -331,7 +331,7 @@ class _MathState extends State<MathPage>{
         Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(24),
           child:Column(children:[
             Text('$a + $b = ؟',style:const TextStyle(color:rose,fontSize:42,fontWeight:FontWeight.w900)),
-            Text('🍎 ' * a + ' + ' + '🍎 ' * b,textAlign:TextAlign.center,
+            Text('${'🍎 ' * a} + ${'🍎 ' * b}',textAlign:TextAlign.center,
               style:const TextStyle(fontSize:20)),
             Text(loaded ? 'إجابات صحيحة محفوظة: $correct من $attempts' : 'جار تحميل التقدم...'),
           ]))),
