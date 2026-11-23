@@ -111,7 +111,7 @@ exports.getPairingStatus = onCall(options, async request => {
   if (request.auth.token.firebase?.sign_in_provider !== 'anonymous')
     throw new HttpsError('permission-denied', 'Child session required');
   const code = requireString(request.data?.code, 'code', 8);
-  if (!/^\\d{8}$/.test(code)) throw new HttpsError('invalid-argument', 'Invalid code');
+  if (!/^\d{8}$/.test(code)) throw new HttpsError('invalid-argument', 'Invalid code');
   const hash = crypto.createHash('sha256').update(code).digest('hex');
   const pair = await db.doc('pairingRequests/' + hash).get();
   if (!pair.exists || pair.get('deviceUid') !== uid)
