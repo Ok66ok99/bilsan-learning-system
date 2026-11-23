@@ -1,9 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:kidslearn/main.dart';
 
 void main() {
   testWidgets('Bilsan home opens a real letters activity', (tester) async {
-    await tester.pumpWidget(const BilsanKidsApp());
+    // Test the lesson UI separately; the real app entry is guarded by server approval.
+    await tester.pumpWidget(const MaterialApp(home: KidsHome()));
     expect(find.text('عالم بيلسان'), findsOneWidget);
     await tester.tap(find.text('هيا نتعلّم'));
     // Advance once to start the route transition, then complete its animation.
