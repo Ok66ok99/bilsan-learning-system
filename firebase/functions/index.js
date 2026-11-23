@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const crypto = require('node:crypto');
+const security = require('./security');
 admin.initializeApp();
 const db = admin.firestore();
 const region = 'us-central1';
@@ -28,7 +29,7 @@ async function parentFamily(uid, familyId) {
 
 exports.createFamily = onCall(options, async request => {
   const uid = uidOf(request);
-  if (request.auth.token.firebase?.sign_in_provider !== 'password')
+  if (!security.providerAllowed(request.auth, 'parent'))
     throw new HttpsError('permission-denied', 'Parent email/password sign-in required');
   const ownerRef = db.doc('parentFamilies/' + uid);
   return db.runTransaction(async tx => {
@@ -43,8 +44,7 @@ exports.createFamily = onCall(options, async request => {
 
 exports.requestPairing = onCall(options, async request => {
   const uid = uidOf(request);
-  if (!request.auth.token.firebase?.sign_in_provider ||
-      request.auth.token.firebase.sign_in_provider !== 'anonymous')
+  if (!security.providerAllowed(request.auth, 'child'))
     throw new HttpsError('permission-denied', 'Child anonymous sign-in required');
   const requestLimitRef = db.doc('pairingIssueLimits/' + uid);
   await db.runTransaction(async tx => {
@@ -57,7 +57,7 @@ exports.requestPairing = onCall(options, async request => {
       windowStartedAt: admin.firestore.Timestamp.fromMillis(count === 0 ? now : last) });
   });
   const code = crypto.randomInt(10000000, 99999999).toString();
-  const hash = crypto.createHash('sha256').update(code).digest('hex');
+  const hash = security.codeHash(code);
   const existing = await db.collection('pairingRequests').where('deviceUid', '==', uid)
     .where('status', '==', 'pending').limit(20).get();
   const batch = db.batch();
@@ -72,13 +72,13 @@ exports.requestPairing = onCall(options, async request => {
 
 exports.approvePairing = onCall(options, async request => {
   const uid = uidOf(request);
-  if (request.auth.token.firebase?.sign_in_provider !== 'password')
+  if (!security.providerAllowed(request.auth, 'parent'))
     throw new HttpsError('permission-denied', 'Parent sign-in required');
   const familyId = requireString(request.data?.familyId, 'familyId');
   const code = requireString(request.data?.code, 'code', 8);
-  if (!/^\d{8}$/.test(code)) throw new HttpsError('invalid-argument', 'Invalid code');
+  if (!security.validCode(code)) throw new HttpsError('invalid-argument', 'Invalid code');
   const familyRef = await parentFamily(uid, familyId);
-  const hash = crypto.createHash('sha256').update(code).digest('hex');
+  const hash = security.codeHash(code);
   const pairRef = db.doc('pairingRequests/' + hash);
   const attemptsRef = db.doc('pairingAttempts/' + uid);
   // Consume an attempt in a separate committed transaction. Failed codes
@@ -94,8 +94,10 @@ exports.approvePairing = onCall(options, async request => {
   });
   return db.runTransaction(async tx => {
     const pair = await tx.get(pairRef);
-    if (!pair.exists || pair.get('status') !== 'pending' ||
-        pair.get('expiresAt').toMillis() <= Date.now())
+    if (!pair.exists || !security.pairingValid({
+      status: pair.get('status'), expiresAt: pair.get('expiresAt').toMillis(),
+      deviceUid: pair.get('deviceUid'),
+    }, Date.now()))
       throw new HttpsError('failed-precondition', 'Code expired or already used');
     const deviceUid = pair.get('deviceUid');
     const deviceRef = familyRef.collection('devices').doc(deviceUid);
@@ -112,7 +114,7 @@ exports.approvePairing = onCall(options, async request => {
 
 exports.revokeDevice = onCall(options, async request => {
   const uid = uidOf(request);
-  if (request.auth.token.firebase?.sign_in_provider !== 'password')
+  if (!security.providerAllowed(request.auth, 'parent'))
     throw new HttpsError('permission-denied', 'Parent sign-in required');
   const familyId = requireString(request.data?.familyId, 'familyId');
   const deviceUid = requireString(request.data?.deviceUid, 'deviceUid');
@@ -132,11 +134,11 @@ exports.revokeDevice = onCall(options, async request => {
 
 exports.getPairingStatus = onCall(options, async request => {
   const uid = uidOf(request);
-  if (request.auth.token.firebase?.sign_in_provider !== 'anonymous')
+  if (!security.providerAllowed(request.auth, 'child'))
     throw new HttpsError('permission-denied', 'Child session required');
   const code = requireString(request.data?.code, 'code', 8);
-  if (!/^\d{8}$/.test(code)) throw new HttpsError('invalid-argument', 'Invalid code');
-  const hash = crypto.createHash('sha256').update(code).digest('hex');
+  if (!security.validCode(code)) throw new HttpsError('invalid-argument', 'Invalid code');
+  const hash = security.codeHash(code);
   const pair = await db.doc('pairingRequests/' + hash).get();
   if (!pair.exists || pair.get('deviceUid') !== uid)
     throw new HttpsError('permission-denied', 'Not your pairing request');
@@ -151,24 +153,18 @@ exports.getPairingStatus = onCall(options, async request => {
       device.get('revoked') !== true ? familyId : null };
 });
 
-const allowedTopics = Object.freeze({
-  letters: 'الحروف العربية',
-  numbers: 'الجمع والعد من 0 إلى 20',
-  colors: 'الألوان الأساسية',
-});
-
 exports.childLearningHint = onCall({
   ...options, secrets: [geminiKey], timeoutSeconds: 20,
 }, async request => {
   const uid = uidOf(request);
-  if (request.auth.token.firebase?.sign_in_provider !== 'anonymous')
+  if (!security.providerAllowed(request.auth, 'child'))
     throw new HttpsError('permission-denied', 'Child session required');
   const familyId = requireString(request.data?.familyId, 'familyId');
   const topic = requireString(request.data?.topic, 'topic', 16);
-  if (!Object.hasOwn(allowedTopics, topic))
+  if (!['letters', 'numbers', 'colors'].includes(topic))
     throw new HttpsError('invalid-argument', 'Unsupported learning topic');
   const device = await db.doc('families/' + familyId + '/devices/' + uid).get();
-  if (!device.exists || device.get('approved') !== true || device.get('revoked') === true)
+  if (!device.exists || !security.approvedDevice(device.data()))
     throw new HttpsError('permission-denied', 'Parent approval required');
   const limitRef = db.doc('learningHintLimits/' + uid);
   await db.runTransaction(async tx => {
@@ -183,8 +179,7 @@ exports.childLearningHint = onCall({
   const key = geminiKey.value();
   if (!key) throw new HttpsError('failed-precondition', 'Gemini is not configured');
   // No free-form prompts or identifying child data are forwarded to Gemini.
-  const prompt = 'اكتب تلميحاً تعليمياً واحداً بالعربية الفصحى لطفل عمره 6 سنوات عن ' +
-    allowedTopics[topic] + '. بحد أقصى 18 كلمة، بدون روابط أو أسئلة شخصية.';
+  const prompt = security.topicPrompt(topic);
   const response = await fetch(
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
     { method: 'POST', headers: { 'Content-Type': 'application/json',
@@ -194,8 +189,7 @@ exports.childLearningHint = onCall({
       signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new HttpsError('unavailable', 'Learning helper unavailable');
   const data = await response.json();
-  const hint = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof hint !== 'string' || !hint.trim())
-    throw new HttpsError('unavailable', 'No learning hint available');
-  return { hint: hint.trim().slice(0, 160) };
+  const hint = security.safeHint(data);
+  if (!hint) throw new HttpsError('unavailable', 'No learning hint available');
+  return { hint };
 });
