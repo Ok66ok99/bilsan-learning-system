@@ -1,0 +1,67 @@
+name: Restore Android native projects (no APK)
+on:
+  push:
+    branches: [development/bilsan-v1]
+    paths:
+      - '.github/workflows/restore-android-projects.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development/bilsan-v1
+          persist-credentials: true
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate native Android files without building APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --org com.abumishal --project-name kidslearn --platforms android apps/kids_learn
+          flutter create --org com.abumishal --project-name parentcontrol --platforms android apps/parent_control
+          python3 - <<'PY'
+          from pathlib import Path
+          for folder, package, label in [
+              ('kids_learn', 'com.abumishal.kidslearn', 'عالم بيلسان'),
+              ('parent_control', 'com.abumishal.parentcontrol', 'متابعة طفلتي'),
+          ]:
+              root = Path('apps') / folder / 'android'
+              manifest = root / 'app/src/main/AndroidManifest.xml'
+              data = manifest.read_text(encoding='utf-8')
+              import re
+              data, n = re.subn(r'android:label="[^"]+"', 'android:label="' + label + '"', data, count=1)
+              assert n == 1, f'Missing Android app label in {folder}'
+              if 'android.permission.INTERNET' not in data:
+                  data = data.replace('<application', '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application', 1)
+              manifest.write_text(data, encoding='utf-8')
+              gradle = (root / 'app/build.gradle.kts').read_text(encoding='utf-8')
+              assert package in gradle, f'Wrong Android application ID in {folder}'
+              assert (root / 'settings.gradle.kts').exists()
+              print('Validated:', folder, package)
+          PY
+      - name: Commit native projects only to development branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f apps/kids_learn/android apps/parent_control/android
+          # Do not check in machine-local files or build artifacts.
+          git reset -q -- ':(glob)**/local.properties' ':(glob)**/.gradle/**' ':(glob)**/build/**' || true
+          if git diff --cached --quiet; then
+            echo "Android projects already committed."
+            exit 0
+          fi
+          git commit -m "Restore Flutter-generated native Android projects for both Bilsan apps"
+          git push origin HEAD:development/bilsan-v1
+      - name: Verify Flutter projects after restoration
+        shell: bash
+        run: |
+          (cd apps/kids_learn && flutter pub get && flutter analyze --no-fatal-infos && flutter test)
+          (cd apps/parent_control && flutter pub get && flutter analyze --no-fatal-infos && flutter test)
