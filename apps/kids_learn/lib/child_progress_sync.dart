@@ -1,20 +1,46 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Only server-approved children can write their own progress document.
-/// Firestore rules enforce ownership, monotonic count, and server timestamp.
+/// Local progress is authoritative until the server confirms an upload.
+/// Rejected/revoked devices never bypass Firestore security rules.
 class ChildProgressSync {
-  static Future<void> recordCompletedLesson(String familyId, int total) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw StateError('Child must sign in');
+  static const _pendingKey = 'math_progress_pending';
+
+  static Future<void> queueCompletedQuestion(int total) async {
     if (total < 0 || total > 100000) throw ArgumentError.value(total, 'total');
-    await FirebaseFirestore.instance
+    final prefs = await SharedPreferences.getInstance();
+    final pending = prefs.getInt(_pendingKey) ?? 0;
+    await prefs.setInt(_pendingKey, total > pending ? total : pending);
+    await flushPending();
+  }
+
+  static Future<void> flushPending() async {
+    final prefs = await SharedPreferences.getInstance();
+    final familyId = prefs.getString('approved_family_id');
+    final total = prefs.getInt(_pendingKey);
+    final user = FirebaseAuth.instance.currentUser;
+    if (familyId == null || total == null || user == null) return;
+    // Firestore rules require an approved device, matching UID and monotonic count.
+    final ref = FirebaseFirestore.instance
         .collection('families').doc(familyId)
-        .collection('progress').doc(user.uid)
-        .set({
-          'deviceUid': user.uid,
-          'completedCount': total,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        .collection('progress').doc(user.uid);
+    try {
+      await ref.set({
+        'deviceUid': user.uid,
+        'completedCount': total,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      // A newer completion may have arrived while the write was in flight.
+      if (prefs.getInt(_pendingKey) == total) {
+        await prefs.remove(_pendingKey);
+      }
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        // Force a fresh pairing status check; do not repeatedly retry revoked access.
+        await prefs.remove('approved_family_id');
+      }
+      rethrow;
+    }
   }
 }
