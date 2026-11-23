@@ -136,3 +136,41 @@ test('Firebase client queues offline progress and commits it after network retur
   const saved = await parent.doc('families/family-a/progress/child-a').get();
   expect(saved.data().completedCount).toBe(9);
 });
+
+test('offline Firestore client cannot commit queued progress after parent revokes device', async () => {
+  const child = env.authenticatedContext('child-a').firestore();
+  const progress = child.doc('families/family-a/progress/child-a');
+  await assertSucceeds(progress.set({
+    deviceUid: 'child-a', completedCount: 2, updatedAt: serverTimestamp(),
+  }));
+  await child.disableNetwork();
+  // Attach both success and rejection handlers immediately: an expected
+  // permission-denied response must not become an unhandled rejection.
+  let settled = false;
+  const pending = progress.set({
+    deviceUid: 'child-a', completedCount: 7, updatedAt: serverTimestamp(),
+  }).then(
+    () => { settled = true; return 'accepted'; },
+    (error) => { settled = true; return error.code || 'rejected'; },
+  );
+  await new Promise(resolve => setTimeout(resolve, 200));
+  expect(settled).toBe(false);
+  await env.withSecurityRulesDisabled(async context => {
+    await context.firestore().doc('families/family-a/devices/child-a')
+      .update({ approved: false, revoked: true });
+  });
+  await child.enableNetwork();
+  const outcome = await Promise.race([
+    pending,
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error('Offline revoked write did not settle')), 8000)),
+  ]);
+  expect(outcome).not.toBe('accepted');
+  expect(outcome).toMatch(/permission-denied/);
+  const parent = env.authenticatedContext('parent-a').firestore();
+  const saved = await parent.doc('families/family-a/progress/child-a').get();
+  expect(saved.data().completedCount).toBe(2);
+  await assertFails(child.doc('families/family-b/progress/child-a').set({
+    deviceUid: 'child-a', completedCount: 7, updatedAt: serverTimestamp(),
+  }));
+});
