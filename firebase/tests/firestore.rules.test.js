@@ -174,3 +174,18 @@ test('offline Firestore client cannot commit queued progress after parent revoke
     deviceUid: 'child-a', completedCount: 7, updatedAt: serverTimestamp(),
   }));
 });
+
+test('approved children cannot read another child progress or list family progress', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.firestore().doc('families/family-a/devices/child-b')
+      .set({ approved: true, revoked: false });
+    await context.firestore().doc('families/family-a/progress/child-b')
+      .set({ deviceUid: 'child-b', completedCount: 4, updatedAt: new Date() });
+  });
+  const child = env.authenticatedContext('child-a').firestore();
+  await assertFails(child.doc('families/family-a/progress/child-b').get());
+  await assertFails(child.collection('families/family-a/progress').get());
+  const parent = env.authenticatedContext('parent-a').firestore();
+  await assertSucceeds(parent.doc('families/family-a/progress/child-b').get());
+  await assertSucceeds(parent.collection('families/family-a/progress').get());
+});
