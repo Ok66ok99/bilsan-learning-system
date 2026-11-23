@@ -29,3 +29,7 @@ jobs:
           java-version: '17'
       - run: npm install --no-audit --no-fund
       - run: npm run test:rules
+      - name: Install callable test dependencies
+        run: npm --prefix functions install --no-audit --no-fund
+      - name: Test real callable flows with Firestore emulator
+        run: npm run test:integration
