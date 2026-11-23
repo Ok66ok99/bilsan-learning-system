@@ -327,12 +327,11 @@ class _MathState extends State<MathPage>{
     setState(() {step++;chosen=null;});
     final prefs=await SharedPreferences.getInstance();
     await prefs.setInt('math_step',step);
-    final familyId = prefs.getString('approved_family_id');
-    if (familyId != null && ChildFirebase.configured) {
+    if (ChildFirebase.configured) {
       try {
-        await ChildProgressSync.recordCompletedLesson(familyId, step);
+        await ChildProgressSync.queueCompletedQuestion(step);
       } catch (_) {
-        // Keep local progress; server sync may be offline or revoked.
+        // Keep pending progress locally until the next retry.
       }
     }
   }
