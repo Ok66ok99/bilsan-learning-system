@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const BilsanParentApp());
 
@@ -28,16 +29,49 @@ class ParentDashboard extends StatefulWidget {
 class _ParentDashboardState extends State<ParentDashboard> {
   int semester = 1;
   final selected = <String>{};
+  bool preferencesLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        semester = prefs.getInt('bilsan_semester') ?? 1;
+        selected
+          ..clear()
+          ..addAll(prefs.getStringList('bilsan_lessons') ?? <String>[]);
+        preferencesLoaded = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => preferencesLoaded = true);
+    }
+  }
+
+  Future<void> _savePreferences(int newSemester, Set<String> lessons) async {
+    setState(() {
+      semester = newSemester;
+      selected
+        ..clear()
+        ..addAll(lessons);
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('bilsan_semester', newSemester);
+    await prefs.setStringList('bilsan_lessons', lessons.toList()..sort());
+  }
+
   void open(Widget page) => Navigator.push(context,
     MaterialPageRoute<void>(builder: (_) => page));
   void editCurriculum() => showModalBottomSheet<void>(
     context: context, isScrollControlled: true, showDragHandle: true,
     builder: (_) => CurriculumSheet(
       semester: semester, selection: selected,
-      onSaved: (s, lessons) => setState(() {
-        semester = s;
-        selected..clear()..addAll(lessons);
-      }),
+      onSaved: (s, lessons) => _savePreferences(s, lessons),
     ),
   );
   @override
@@ -109,7 +143,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
               const SizedBox(height: 17),
               Row(children: [
                 Expanded(child:StatusTile(icon:Icons.menu_book_rounded,
-                  label:'المناهج',value:'الفصل $semester',tone:const Color(0xFFDDF0FF))),
+                  label:'المناهج',value:preferencesLoaded ? 'الفصل $semester' : 'جار التحميل',tone:const Color(0xFFDDF0FF))),
                 const SizedBox(width:10),
                 const Expanded(child:StatusTile(icon:Icons.query_stats_rounded,
                   label:'تقدم المهارات',value:'لم يُقيّم',tone:Color(0xFFFBE6F4))),
@@ -266,7 +300,7 @@ class _CurriculumState extends State<CurriculumSheet> {
             widget.onSaved(semester,selected);
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content:Text('حُفظ الاختيار في ذاكرة الجلسة فقط؛ لم تُفعّل المزامنة بعد.')));
+              content:Text('حُفظ الاختيار على جهاز الأب فقط؛ المزامنة غير مفعّلة.')));
           }, icon:const Icon(Icons.check_circle_rounded),
           label:const Text('حفظ اختيار الدروس')),
         ],
