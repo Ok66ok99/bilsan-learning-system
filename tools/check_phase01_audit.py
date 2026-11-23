@@ -15,6 +15,12 @@ assert len(extras) == 20 and len(set(extras)) == 20, "Expected 20 unique additio
 for key in ids:
     row = next(line for line in audit.splitlines() if line.startswith(f"| {key} |"))
     assert row.count("|") >= 5, f"Missing status/evidence/acceptance fields: {key}"
+characters = ("كيدوزا", "سمسم", "وردة", "زيزو")
+kid_line = next(line for line in spec.splitlines() if line.startswith("- KID-001 |"))
+audit_line = next(line for line in audit.splitlines() if line.startswith("| KID-001 |"))
+for character in characters:
+    assert character in kid_line and character in audit_line, f"Missing approved character: {character}"
+assert "11 شخصية تخص مشروع كيدوزا" in audit, "Separate Kidoza project scope must be explicit"
 assert "المرحلة الأولى لم تُعتمد بعد" in audit, "Audit must not claim owner approval"
 print(f"PASS: audited {len(ids)} locked requirements and {len(extras)} additional agreements")
 print("NOTE: completeness of documentation is not proof of feature implementation")
