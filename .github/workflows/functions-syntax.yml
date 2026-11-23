@@ -1,0 +1,20 @@
+name: Phase 2 Functions Syntax
+on:
+  push:
+    branches: [development/bilsan-v1]
+    paths:
+      - 'firebase/functions/**'
+      - '.github/workflows/functions-syntax.yml'
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify callable functions JavaScript syntax
+        run: node --check firebase/functions/index.js
+      - name: Verify functions package manifest
+        run: node -e "const p=require('./firebase/functions/package.json'); if(!p.dependencies['firebase-admin'] || !p.dependencies['firebase-functions']) process.exit(1)"
