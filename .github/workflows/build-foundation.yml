@@ -78,7 +78,7 @@ jobs:
         run: |
           cd apps/kids_learn
           flutter pub get
-          flutter analyze --no-fatal-infos lib/main.dart
+          flutter analyze
 
       - name: Analyze parent Flutter application
         shell: bash
@@ -90,8 +90,23 @@ jobs:
       - name: Test child and parent screens
         shell: bash
         run: |
-          (cd apps/kids_learn && flutter test test/widget_test.dart)
+          (cd apps/kids_learn && flutter test)
           (cd apps/parent_control && flutter test test/widget_test.dart)
+
+      - name: Verify app identity and required behavior before build
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          kids = Path('apps/kids_learn/lib/main.dart').read_text()
+          parent = Path('apps/parent_control/lib/main.dart').read_text()
+          assert "title: 'عالم بيلسان'" in kids
+          assert "title: 'متابعة طفلتي'" in parent
+          assert "assets/kidoza.webp" in kids and "assets/kidoza.webp" in parent
+          assert "prefs.setInt('math_correct'" in kids
+          assert "prefs.setStringList('bilsan_lessons'" in parent
+          print('Identity and local persistence checks passed')
+          PY
 
       - name: Build child debug APK
         shell: bash
