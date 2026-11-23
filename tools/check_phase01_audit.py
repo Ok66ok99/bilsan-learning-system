@@ -11,7 +11,8 @@ assert len(ids) == 28 and len(set(ids)) == 28, "Expected 28 unique locked requir
 missing = [key for key in ids if not re.search(r"(?m)^\| " + re.escape(key) + r" \|", audit)]
 assert not missing, f"Audit missing requirement rows: {missing}"
 extras = re.findall(r"(?m)^\| (EX-\d{3}) \|", audit)
-assert len(extras) == 20 and len(set(extras)) == 20, "Expected 20 initial agreement rows"\nassert "**EX-021 | دعم جوالات أندرويد وتابلت أندرويد للتطبيقين.**" in audit, "Phone and tablet acceptance criterion missing"
+assert len(extras) == 20 and len(set(extras)) == 20, "Expected 20 initial agreement rows"
+assert "**EX-021 | دعم جوالات أندرويد وتابلت أندرويد للتطبيقين.**" in audit, "Phone and tablet acceptance criterion missing"
 for key in ids:
     row = next(line for line in audit.splitlines() if line.startswith(f"| {key} |"))
     assert row.count("|") >= 5, f"Missing status/evidence/acceptance fields: {key}"
