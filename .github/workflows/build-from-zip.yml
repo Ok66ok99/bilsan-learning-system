@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           cd "$PROJECT_ROOT"
-          dart format --output=none --set-exit-if-changed apps/kids_learn/lib apps/parent_control/lib packages/bilsan_ui/lib packages/bilsan_characters/lib packages/bilsan_characters/test apps/kids_learn/test apps/parent_control/test
+          dart format apps/kids_learn/lib apps/parent_control/lib packages/bilsan_ui/lib packages/bilsan_characters/lib packages/bilsan_characters/test apps/kids_learn/test apps/parent_control/test
           (cd packages/bilsan_ui && flutter analyze)
           (cd packages/bilsan_characters && flutter analyze && flutter test)
           (cd apps/kids_learn && flutter analyze && flutter test)
