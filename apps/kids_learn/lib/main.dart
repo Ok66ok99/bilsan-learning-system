@@ -7,6 +7,7 @@ import 'child_progress_sync.dart';
 import 'child_access_gate.dart';
 import 'activity_rotation.dart';
 import 'drawing_lesson.dart';
+import 'drawing_archive.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -395,6 +396,30 @@ class DrawingPage extends StatefulWidget {
 class _DrawingState extends State<DrawingPage>{
   final session=DrawingSession(flowerLesson);
   Color brushColor=rose;
+  bool saving=false;
+  Future<void> saveDrawing() async {
+    if(saving || session.strokes.isEmpty)return;
+    setState(()=>saving=true);
+    try {
+      // Normalize to the fixed canvas coordinate space before saving.
+      final drawing=SavedDrawing(
+        id:DateTime.now().microsecondsSinceEpoch.toString(),
+        createdAt:DateTime.now().toUtc().toIso8601String(),
+        strokes:session.strokes.map((line)=>line.map((p)=>
+          Offset((p.dx/_canvasSize.width).clamp(0.0,1.0),
+                 (p.dy/_canvasSize.height).clamp(0.0,1.0))).toList()).toList());
+      await DrawingArchive.saveLocal(drawing);
+      final sent=await DrawingArchive.syncToParent()
+        .timeout(const Duration(seconds:4),onTimeout:()=>false);
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:Text(sent?'حُفظت الرسمة وأُرسلت للمزامنة':
+          'حُفظت الرسمة على الجهاز. ستحتاجين إعادة الإرسال عند توفر الاتصال.')));
+    } catch (_) {
+      if(mounted)ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content:Text('تعذر حفظ الرسمة. حاولي مجددًا.')));
+    } finally {if(mounted)setState(()=>saving=false);}
+  }
+  Size _canvasSize=const Size(1,1);
   void change(VoidCallback action)=>setState(action);
   @override
   Widget build(BuildContext context)=>LessonShell(title:'الرسم مع وردة',
@@ -413,13 +438,16 @@ class _DrawingState extends State<DrawingPage>{
           onPanUpdate:session.showReference?null:(d)=>change((){
             if(session.strokes.isNotEmpty)session.strokes.last.add(d.localPosition);
           }),
-          child:CustomPaint(
+          child:LayoutBuilder(builder:(context,constraints){
+            _canvasSize=Size(constraints.maxWidth,constraints.maxHeight);
+            return CustomPaint(
             painter:DrawPainter(session.strokes,
               guide:session.showReference?flowerLesson.steps:
                 session.tracing?flowerLesson.steps:
                 session.currentStep==null?const []:[session.currentStep!],
               brushColor:brushColor),
-            child:const SizedBox.expand()),
+            child:const SizedBox.expand());
+          }),
         )),
       )),
       const SizedBox(height:12),
@@ -436,6 +464,15 @@ class _DrawingState extends State<DrawingPage>{
             child:Text(session.coloring?'إنهاء التلوين':'التلوين')),
         ],
         OutlinedButton(onPressed:()=>change(session.reset),child:const Text('إعادة من البداية')),
+        FilledButton.icon(onPressed:saving?null:saveDrawing,
+          icon:const Icon(Icons.save_rounded),
+          label:Text(saving?'جارٍ الحفظ':'احفظي وأرسلي لأبي')),
+        OutlinedButton(onPressed:() async {
+          final sent=await DrawingArchive.syncToParent();
+          if(!context.mounted)return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:Text(sent?'أُرسلت الرسومات للمزامنة':'تعذر الإرسال الآن، الرسومات محفوظة محليًا')));
+        },child:const Text('إعادة إرسال الرسومات المحفوظة')),
       ]),
       if(session.coloring) Wrap(alignment:WrapAlignment.center,children:[
         for(final color in [rose,Colors.blue,Colors.green,Colors.orange,Colors.purple])
@@ -443,7 +480,7 @@ class _DrawingState extends State<DrawingPage>{
             icon:Icon(Icons.circle,color:color),tooltip:'اختيار لون'),
       ]),
       const SizedBox(height:10),
-      const Text('الرسم واللوحة المرحلية يعملان محليًا. حفظ الرسومات ومزامنتها مع ولي الأمر لم يُنفّذا بعد.',
+      const Text('تُحفظ الرسومات محليًا. يتطلب إرسالها اعتماد الجهاز واتصال Firebase.',
         textAlign:TextAlign.center,style:TextStyle(fontSize:12)),
     ]));
 }
