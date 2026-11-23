@@ -71,8 +71,15 @@ class ChildProgressSync {
           current.total == record.total) await clearPending();
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
-        await prefs.remove('approved_family_id');
-        await clearPending();
+        // An old in-flight request must not revoke a newly paired family.
+        if (prefs.getString('approved_family_id') == familyId &&
+            FirebaseAuth.instance.currentUser?.uid == user.uid) {
+          await prefs.remove('approved_family_id');
+          final current = readPending(prefs);
+          if (current != null && current.belongsTo(familyId, user.uid)) {
+            await clearPending();
+          }
+        }
       }
       rethrow;
     }
