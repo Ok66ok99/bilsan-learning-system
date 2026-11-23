@@ -6,7 +6,10 @@ void main() {
     await tester.pumpWidget(const BilsanKidsApp());
     expect(find.text('عالم بيلسان'), findsOneWidget);
     await tester.tap(find.text('هيا نتعلّم'));
-    await tester.pump(const Duration(seconds: 1));
+    // Advance once to start the route transition, then complete its animation.
+    // A single timed pump starts the transition but does not finish it.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('الحروف الهجائية'), findsOneWidget);
     expect(find.text('أسد'), findsOneWidget);
   });
