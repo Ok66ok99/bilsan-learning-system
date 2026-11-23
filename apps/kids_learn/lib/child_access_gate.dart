@@ -49,7 +49,10 @@ class _ChildAccessGateState extends State<ChildAccessGate>
       final result = await FirebaseFunctions.instanceFor(region: 'us-central1')
           .httpsCallable('verifyDeviceAccess').call({'familyId': familyId});
       final allowed = (result.data as Map)['approved'] == true;
-      if (!allowed) await prefs.remove('approved_family_id');
+      if (!allowed) {
+        await prefs.remove('approved_family_id');
+        await prefs.remove('math_progress_pending');
+      }
       if (allowed) {
         try { await ChildProgressSync.flushPending(); } catch (_) {}
       }
