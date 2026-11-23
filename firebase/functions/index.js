@@ -46,6 +46,16 @@ exports.requestPairing = onCall(options, async request => {
   if (!request.auth.token.firebase?.sign_in_provider ||
       request.auth.token.firebase.sign_in_provider !== 'anonymous')
     throw new HttpsError('permission-denied', 'Child anonymous sign-in required');
+  const requestLimitRef = db.doc('pairingIssueLimits/' + uid);
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(requestLimitRef);
+    const now = Date.now();
+    const last = snap.exists ? snap.get('windowStartedAt')?.toMillis() ?? 0 : 0;
+    const count = now - last < 10 * 60 * 1000 ? snap.get('count') ?? 0 : 0;
+    if (count >= 3) throw new HttpsError('resource-exhausted', 'Try again later');
+    tx.set(requestLimitRef, { count: count + 1,
+      windowStartedAt: admin.firestore.Timestamp.fromMillis(count === 0 ? now : last) });
+  });
   const code = crypto.randomInt(10000000, 99999999).toString();
   const hash = crypto.createHash('sha256').update(code).digest('hex');
   const existing = await db.collection('pairingRequests').where('deviceUid', '==', uid)
