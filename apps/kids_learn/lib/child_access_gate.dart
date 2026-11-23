@@ -56,7 +56,7 @@ class _ChildAccessGateState extends State<ChildAccessGate>
       final allowed = DeviceAccessPolicy.canOpenLessons(verification);
       if (DeviceAccessPolicy.clearLocalAuthorization(verification)) {
         await prefs.remove('approved_family_id');
-        await prefs.remove('math_progress_pending');
+        await ChildProgressSync.clearPending();
       }
       if (allowed) {
         try {
