@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -43,9 +44,11 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
   });
 
   Future<void> refreshDevices(String id) async {
-    // Server-owned device approval; parent may read its own device list.
-    // Device list is intentionally omitted until Firestore query integration.
-    if (mounted) setState(() => devices = []);
+    final result = await FirebaseFirestore.instance
+        .collection('families').doc(id).collection('devices').get();
+    if (mounted) setState(() => devices = result.docs
+        .where((d) => d.data()['approved'] == true && d.data()['revoked'] != true)
+        .map((d) => d.id).toList());
   }
 
   Future<void> approve() => run(() async {
@@ -56,7 +59,18 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
     await functions.httpsCallable('approvePairing').call({
       'familyId': id, 'code': code.text.trim(),
     });
-    if (mounted) setState(() => message = 'تم إرسال الموافقة للخادم بنجاح');
+    await refreshDevices(id);
+    if (mounted) setState(() => message = 'تمت الموافقة على الجهاز');
+  });
+
+  Future<void> revoke(String deviceUid) => run(() async {
+    final id = familyId;
+    if (id == null) return;
+    await functions.httpsCallable('revokeDevice').call({
+      'familyId': id, 'deviceUid': deviceUid,
+    });
+    await refreshDevices(id);
+    if (mounted) setState(() => message = 'أُلغيت صلاحية الجهاز');
   });
 
   @override
@@ -79,7 +93,16 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
           if (message != null) Padding(
             padding: const EdgeInsets.only(top: 16), child: Text(message!)),
           const SizedBox(height: 16),
-          const Text('إدارة الأجهزة وإلغاء الربط ستظهر بعد اكتمال قراءة قائمة الأجهزة من Firebase.'),
+          const Text('الأجهزة المعتمدة:'),
+          for (final device in devices) ListTile(
+            title: Text('جهاز: ${device.length > 8 ? device.substring(0, 8) : device}'),
+            trailing: TextButton(
+              onPressed: busy ? null : () => revoke(device),
+              child: const Text('إلغاء الربط')),
+          ),
+          OutlinedButton(
+            onPressed: busy || familyId == null ? null : () => run(() => refreshDevices(familyId!)),
+            child: const Text('تحديث قائمة الأجهزة')),
         ]),
       )),
     ),
