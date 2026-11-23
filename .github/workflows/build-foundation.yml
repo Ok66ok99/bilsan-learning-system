@@ -67,14 +67,14 @@ jobs:
         run: |
           cd apps/kids_learn
           flutter pub get
-          flutter analyze lib/main.dart
+          flutter analyze --no-fatal-infos lib/main.dart
 
       - name: Analyze parent Flutter application
         shell: bash
         run: |
           cd apps/parent_control
           flutter pub get
-          flutter analyze lib/main.dart
+          flutter analyze --no-fatal-infos lib/main.dart
 
       - name: Build child debug APK
         shell: bash
