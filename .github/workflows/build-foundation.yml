@@ -10,6 +10,7 @@ on:
       - 'apps/kids_learn/**'
       - 'apps/parent_control/**'
       - 'tools/generate_icons.py'
+      - 'tools/release_gate.py'
 
 concurrency:
   group: bilsan-android-foundation
@@ -107,6 +108,10 @@ jobs:
           assert "prefs.setStringList('bilsan_lessons'" in parent
           print('Identity and local persistence checks passed')
           PY
+
+      - name: Block APK delivery until agreed acceptance requirements are verified
+        shell: bash
+        run: python3 tools/release_gate.py
 
       - name: Build child debug APK
         shell: bash
