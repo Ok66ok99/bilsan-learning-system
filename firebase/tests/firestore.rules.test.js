@@ -73,3 +73,43 @@ test('approved child may write only own validated progress', async () => {
   }));
   await assertFails(own.delete());
 });
+
+test('queued progress is rejected after revocation, and another family cannot receive it', async () => {
+  const child = env.authenticatedContext('child-a').firestore();
+  const own = child.doc('families/family-a/progress/child-a');
+  await assertSucceeds(own.set({
+    deviceUid: 'child-a', completedCount: 3, updatedAt: serverTimestamp(),
+  }));
+  // Offline progress queued locally; no write until connectivity resumes.
+  await env.withSecurityRulesDisabled(async context => {
+    await context.firestore().doc('families/family-a/devices/child-a')
+      .update({ approved: false, revoked: true });
+  });
+  await assertFails(own.update({
+    completedCount: 4, updatedAt: serverTimestamp(),
+  }));
+  await assertFails(child.doc('families/family-b/progress/child-a').set({
+    deviceUid: 'child-a', completedCount: 4, updatedAt: serverTimestamp(),
+  }));
+  const parent = env.authenticatedContext('parent-a').firestore();
+  const persisted = await assertSucceeds(parent.doc('families/family-a/progress/child-a').get());
+  expect(persisted.data().completedCount).toBe(3);
+});
+
+test('approved child can resume a queued monotonic progress update after reconnect', async () => {
+  const child = env.authenticatedContext('child-a').firestore();
+  const ref = child.doc('families/family-a/progress/child-a');
+  await assertSucceeds(ref.set({
+    deviceUid: 'child-a', completedCount: 2, updatedAt: serverTimestamp(),
+  }));
+  // Simulate a reconnect flush using a new request after the first commit.
+  await assertSucceeds(ref.set({
+    deviceUid: 'child-a', completedCount: 5, updatedAt: serverTimestamp(),
+  }, { merge: true }));
+  const parent = env.authenticatedContext('parent-a').firestore();
+  const stored = await assertSucceeds(parent.doc('families/family-a/progress/child-a').get());
+  expect(stored.data().completedCount).toBe(5);
+  await assertFails(ref.set({
+    deviceUid: 'child-a', completedCount: 1, updatedAt: serverTimestamp(),
+  }, { merge: true }));
+});
