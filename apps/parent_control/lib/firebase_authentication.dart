@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'parent_pairing.dart';
 
 class FirebaseBootstrap {
   static const apiKey = String.fromEnvironment('BILSAN_FIREBASE_API_KEY');
@@ -129,8 +130,12 @@ class ParentConnectionPage extends StatelessWidget {
                         onPressed: () => FirebaseAuth.instance.signOut(),
                         child: const Text('تسجيل الخروج')),
                     const SizedBox(height: 20),
-                    const Text('ربط جهاز الطفلة غير متاح حتى تفعيل '
-                      'خدمة الموافقة الآمنة من الخادم.'),
+                    if (user != null) FilledButton.icon(
+                      onPressed: () => Navigator.push(context,
+                        MaterialPageRoute<void>(builder: (_) => const ParentPairingPage())),
+                      icon: const Icon(Icons.phonelink_lock),
+                      label: const Text('ربط جهاز بيلسان')),
+                    const Text('يتطلب الربط تفعيل Cloud Functions وApp Check على Firebase.'),
                   ]);
                 })
             : const Text('إعداد Firebase غير مكتمل في نسخة البناء. '
