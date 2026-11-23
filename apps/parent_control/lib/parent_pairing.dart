@@ -15,6 +15,7 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
   String? familyId;
   String? message;
   bool busy = false;
+  bool learningHintsEnabled = false;
   List<String> devices = [];
 
   @override
@@ -41,6 +42,8 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
     final id = (result.data as Map)['familyId'] as String;
     if (mounted) setState(() => familyId = id);
     await refreshDevices(id);
+    final settings = await FirebaseFirestore.instance.collection('families').doc(id).get();
+    if (mounted) setState(() => learningHintsEnabled = settings.data()?['learningHintsEnabled'] == true);
   });
 
   Future<void> refreshDevices(String id) async {
@@ -73,6 +76,17 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
     if (mounted) setState(() => message = 'أُلغيت صلاحية الجهاز');
   });
 
+  Future<void> setLearningHints(bool enabled) => run(() async {
+    final id = familyId;
+    if (id == null) return;
+    await functions.httpsCallable('setLearningHintsEnabled')
+        .call({'familyId': id, 'enabled': enabled});
+    if (mounted) setState(() {
+      learningHintsEnabled = enabled;
+      message = enabled ? 'تم تفعيل التلميحات التعليمية' : 'تم إيقاف التلميحات التعليمية';
+    });
+  });
+
   @override
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
@@ -93,6 +107,12 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
           if (message != null) Padding(
             padding: const EdgeInsets.only(top: 16), child: Text(message!)),
           const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('تلميحات Gemini التعليمية'),
+            subtitle: const Text('مغلقة افتراضيًا، ولا تُفعّل إلا بموافقة ولي الأمر'),
+            value: learningHintsEnabled,
+            onChanged: busy || familyId == null ? null : setLearningHints,
+          ),
           const Text('الأجهزة المعتمدة:'),
           for (final device in devices) ListTile(
             title: Text('جهاز: ${device.length > 8 ? device.substring(0, 8) : device}'),
@@ -116,7 +136,7 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
                 for (final doc in snapshot.data!.docs)
                   ListTile(
                     title: Text('جهاز: ${doc.id.length > 8 ? doc.id.substring(0, 8) : doc.id}'),
-                    subtitle: Text('الدروس المكتملة: ${doc.data()['completedCount'] ?? 0}'),
+                    subtitle: Text('أسئلة الرياضيات المنجزة: ${doc.data()['completedCount'] ?? 0}'),
                   ),
               ]);
             },
