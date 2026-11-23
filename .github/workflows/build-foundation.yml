@@ -1,0 +1,103 @@
+name: Build Bilsan Foundation Android APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-foundation.yml'
+      - 'apps/kids_learn/lib/**'
+      - 'apps/parent_control/lib/**'
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug:
+    name: Android - Kids and Parent
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate native Android build scaffolds
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create --org com.abumishal --project-name kidslearn --platforms android apps/kids_learn
+          flutter create --org com.abumishal --project-name parentcontrol --platforms android apps/parent_control
+          python3 - <<'PY'
+          from pathlib import Path
+          apps = [
+              ("kids_learn", "عالم بيلسان", "com.abumishal.kidslearn"),
+              ("parent_control", "متابعة طفلتي", "com.abumishal.parentcontrol"),
+          ]
+          for folder, title, package in apps:
+              base = Path("apps") / folder / "android"
+              manifest = base / "app" / "src" / "main" / "AndroidManifest.xml"
+              data = manifest.read_text(encoding="utf-8")
+              data = data.replace('android:label="kidslearn"', f'android:label="{title}"')
+              data = data.replace('android:label="parentcontrol"', f'android:label="{title}"')
+              if "android.permission.INTERNET" not in data:
+                  data = data.replace("<manifest", "<manifest", 1)
+                  pos = data.find(">")
+                  data = data[:pos+1] + '\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' + data[pos+1:]
+              manifest.write_text(data, encoding="utf-8")
+              gradle = base / "app" / "build.gradle.kts"
+              assert package in gradle.read_text(encoding="utf-8"), f"Unexpected package for {folder}"
+              print(folder, title, package)
+          PY
+
+      - name: Analyze kids Flutter application
+        shell: bash
+        run: |
+          cd apps/kids_learn
+          flutter pub get
+          flutter analyze lib/main.dart
+
+      - name: Analyze parent Flutter application
+        shell: bash
+        run: |
+          cd apps/parent_control
+          flutter pub get
+          flutter analyze lib/main.dart
+
+      - name: Build child debug APK
+        shell: bash
+        run: |
+          cd apps/kids_learn
+          flutter build apk --debug
+
+      - name: Build parent debug APK
+        shell: bash
+        run: |
+          cd apps/parent_control
+          flutter build apk --debug
+
+      - name: Upload child APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: alam-bilsan-foundation-debug
+          path: apps/kids_learn/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload parent APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: motabaa-tiflati-foundation-debug
+          path: apps/parent_control/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
