@@ -2,7 +2,8 @@
   "name": "bilsan-firestore-security-tests",
   "private": true,
   "scripts": {
-    "test:rules": "firebase emulators:exec --only firestore 'jest --runInBand --testPathIgnorePatterns=/functions/test/' --project demo-bilsan-security-test"
+    "test:rules": "firebase emulators:exec --only firestore 'jest --runInBand --testPathIgnorePatterns=/functions/' --project demo-bilsan-security-test",
+    "test:integration": "firebase emulators:exec --only firestore 'node --test functions/integration/*.integration.test.js' --project demo-bilsan-security-test"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",
