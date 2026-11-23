@@ -33,7 +33,8 @@ service cloud.firestore {
       }
 
       match /progress/{progressId} {
-        allow get, list: if owner(familyId) || approvedChild(familyId);
+        allow get: if owner(familyId) || (approvedChild(familyId) && progressId == request.auth.uid);
+        allow list: if owner(familyId);
         allow create: if approvedChild(familyId)
           && progressId == request.auth.uid
           && request.resource.data.keys().hasOnly(['deviceUid', 'completedCount', 'updatedAt'])
