@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'child_progress_sync.dart';
 
 class ChildFirebase {
   static const apiKey = String.fromEnvironment('BILSAN_FIREBASE_API_KEY');
@@ -68,6 +69,9 @@ class _ChildPairingPageState extends State<ChildPairingPage> {
       final prefs = await SharedPreferences.getInstance();
       if (nextStatus == 'approved' && data['familyId'] is String) {
         await prefs.setString('approved_family_id', data['familyId'] as String);
+        try { await ChildProgressSync.flushPending(); } catch (_) {
+          // The pending progress remains stored for a later retry.
+        }
       } else {
         await prefs.remove('approved_family_id');
       }
