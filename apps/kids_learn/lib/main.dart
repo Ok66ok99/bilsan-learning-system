@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'child_pairing.dart';
+import 'child_progress_sync.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -326,6 +327,14 @@ class _MathState extends State<MathPage>{
     setState(() {step++;chosen=null;});
     final prefs=await SharedPreferences.getInstance();
     await prefs.setInt('math_step',step);
+    final familyId = prefs.getString('approved_family_id');
+    if (familyId != null && ChildFirebase.configured) {
+      try {
+        await ChildProgressSync.recordCompletedLesson(familyId, step);
+      } catch (_) {
+        // Keep local progress; server sync may be offline or revoked.
+      }
+    }
   }
   static const tasks=[(2,1),(3,2),(1,4),(5,1),(2,5)];
   @override
@@ -363,7 +372,7 @@ class _MathState extends State<MathPage>{
             child:Text(chosen==result?'السؤال التالي':'حاولي مرة أخرى')),
         ],
         const SizedBox(height:16),
-        const Text('يُحفظ التقدم على هذا الجهاز فقط. المزامنة مع تطبيق الأب غير مفعّلة.',
+        const Text('يُحفظ التقدم محليًا، وتُحاول المزامنة عند إكمال السؤال بعد اعتماد ربط الجهاز.',
           textAlign:TextAlign.center,style:TextStyle(fontSize:12)),
       ]));
   }
