@@ -1,11 +1,13 @@
 'use strict';
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const crypto = require('node:crypto');
 admin.initializeApp();
 const db = admin.firestore();
 const region = 'us-central1';
 const options = { region, enforceAppCheck: true, maxInstances: 10 };
+const geminiKey = defineSecret('BILSAN_GEMINI_API_KEY');
 
 function uidOf(request) {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required');
@@ -137,4 +139,43 @@ exports.getPairingStatus = onCall(options, async request => {
     device.get('revoked') !== true ? 'approved' : 'revoked',
     familyId: device.exists && device.get('approved') === true &&
       device.get('revoked') !== true ? familyId : null };
+});
+
+const allowedTopics = Object.freeze({
+  letters: 'الحروف العربية',
+  numbers: 'الجمع والعد من 0 إلى 20',
+  colors: 'الألوان الأساسية',
+});
+
+exports.childLearningHint = onCall({
+  ...options, secrets: [geminiKey], timeoutSeconds: 20,
+}, async request => {
+  const uid = uidOf(request);
+  if (request.auth.token.firebase?.sign_in_provider !== 'anonymous')
+    throw new HttpsError('permission-denied', 'Child session required');
+  const familyId = requireString(request.data?.familyId, 'familyId');
+  const topic = requireString(request.data?.topic, 'topic', 16);
+  if (!Object.hasOwn(allowedTopics, topic))
+    throw new HttpsError('invalid-argument', 'Unsupported learning topic');
+  const device = await db.doc('families/' + familyId + '/devices/' + uid).get();
+  if (!device.exists || device.get('approved') !== true || device.get('revoked') === true)
+    throw new HttpsError('permission-denied', 'Parent approval required');
+  const key = geminiKey.value();
+  if (!key) throw new HttpsError('failed-precondition', 'Gemini is not configured');
+  // No free-form prompts or identifying child data are forwarded to Gemini.
+  const prompt = 'اكتب تلميحاً تعليمياً واحداً بالعربية الفصحى لطفل عمره 6 سنوات عن ' +
+    allowedTopics[topic] + '. بحد أقصى 18 كلمة، بدون روابط أو أسئلة شخصية.';
+  const response = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+    { method: 'POST', headers: { 'Content-Type': 'application/json',
+        'x-goog-api-key': key },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 80, temperature: 0.3 } }),
+      signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new HttpsError('unavailable', 'Learning helper unavailable');
+  const data = await response.json();
+  const hint = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof hint !== 'string' || !hint.trim())
+    throw new HttpsError('unavailable', 'No learning hint available');
+  return { hint: hint.trim().slice(0, 160) };
 });
