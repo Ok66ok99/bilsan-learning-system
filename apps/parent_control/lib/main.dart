@@ -328,8 +328,8 @@ class _GreetingCardState extends State<GreetingCardEditor> {
             child:Stack(children:[
               const Positioned(top:16,left:22,child:Text('🌸',style:TextStyle(fontSize:30))),
               const Positioned(top:12,right:18,child:Text('✨',style:TextStyle(fontSize:30))),
-              const Align(alignment:Alignment.topCenter,
-                child:Padding(padding:EdgeInsets.only(top:8),
+              Align(alignment:Alignment.topCenter,
+                child:Padding(padding:const EdgeInsets.only(top:8),
                   child:Row(mainAxisSize:MainAxisSize.min,children:[ClipOval(child:Image.asset('assets/kidoza.webp',width:63,height:63,fit:BoxFit.cover)),const Text(' 💝',style:TextStyle(fontSize:34))]))),
               Align(alignment:Alignment.center,child:Padding(
                 padding:const EdgeInsets.fromLTRB(26,45,26,12),
