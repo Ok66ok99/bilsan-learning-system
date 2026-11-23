@@ -56,6 +56,13 @@ class _ChildAccessGateState extends State<ChildAccessGate>
       final result = await FirebaseFunctions.instanceFor(region: 'us-central1')
           .httpsCallable('verifyDeviceAccess').call({'familyId': familyId})
           .timeout(const Duration(seconds: 10));
+      // Ignore a response from an identity replaced while the request was in flight.
+      final currentPrefs = await SharedPreferences.getInstance();
+      if (currentPrefs.getString('approved_family_id') != familyId ||
+          FirebaseAuth.instance.currentUser?.uid != user.uid) {
+        if (mounted) setState(() => message = 'تغير ربط الجهاز. أعد التحقق.');
+        return;
+      }
       final verification = DeviceAccessPolicy.fromServerResponse(
           (result.data as Map)['approved']);
       final allowed = DeviceAccessPolicy.canOpenLessons(verification);
