@@ -151,7 +151,7 @@ class _MascotState extends State<Mascot> with SingleTickerProviderStateMixin {
     child: Container(width:122,height:122,
       decoration: const BoxDecoration(shape:BoxShape.circle,color:Color(0xAAFFFFFF),
         boxShadow:[BoxShadow(color:Color(0x33894A86),blurRadius:20)]),
-      child:const Center(child:Text('🐱',style:TextStyle(fontSize:86)))));
+      child:ClipOval(child:Image.asset('assets/kidoza.webp',width:122,height:122,fit:BoxFit.cover))));
 }
 
 class World extends StatefulWidget {
