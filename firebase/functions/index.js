@@ -153,6 +153,29 @@ exports.getPairingStatus = onCall(options, async request => {
       device.get('revoked') !== true ? familyId : null };
 });
 
+// A device must revalidate its approval on every launch; local preferences
+// never grant access. Offline validation fails closed.
+exports.verifyDeviceAccess = onCall(options, async request => {
+  const uid = uidOf(request);
+  if (!security.providerAllowed(request.auth, 'child'))
+    throw new HttpsError('permission-denied', 'Child session required');
+  const familyId = requireString(request.data?.familyId, 'familyId');
+  const device = await db.doc('families/' + familyId + '/devices/' + uid).get();
+  return { approved: device.exists && security.approvedDevice(device.data()) };
+});
+
+exports.setLearningHintsEnabled = onCall(options, async request => {
+  const uid = uidOf(request);
+  if (!security.providerAllowed(request.auth, 'parent'))
+    throw new HttpsError('permission-denied', 'Parent sign-in required');
+  const familyId = requireString(request.data?.familyId, 'familyId');
+  if (typeof request.data?.enabled !== 'boolean')
+    throw new HttpsError('invalid-argument', 'enabled must be boolean');
+  const familyRef = await parentFamily(uid, familyId);
+  await familyRef.set({ learningHintsEnabled: request.data.enabled }, { merge: true });
+  return { enabled: request.data.enabled };
+});
+
 exports.childLearningHint = onCall({
   ...options, secrets: [geminiKey], timeoutSeconds: 20,
 }, async request => {
@@ -166,6 +189,9 @@ exports.childLearningHint = onCall({
   const device = await db.doc('families/' + familyId + '/devices/' + uid).get();
   if (!device.exists || !security.approvedDevice(device.data()))
     throw new HttpsError('permission-denied', 'Parent approval required');
+  const family = await db.doc('families/' + familyId).get();
+  if (!family.exists || family.get('learningHintsEnabled') !== true)
+    throw new HttpsError('permission-denied', 'Learning hints disabled by parent');
   const limitRef = db.doc('learningHintLimits/' + uid);
   await db.runTransaction(async tx => {
     const snap = await tx.get(limitRef);
