@@ -1,8 +1,17 @@
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_authentication.dart';
 
-void main() => runApp(const BilsanParentApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await FirebaseBootstrap.initialize();
+  } catch (_) {
+    // Remain offline and never claim successful Firebase connection.
+  }
+  runApp(const BilsanParentApp());
+}
 
 const navy = Color(0xFF20385F);
 const purple = Color(0xFF7456B4);
@@ -98,8 +107,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                   Text('لوحة ولي الأمر',style:TextStyle(color:purple,fontSize:13)),
                 ])),
                 IconButton.filledTonal(onPressed: ()=>open(
-                  const InformationScreen('الإعدادات',
-                    'إعدادات الحساب والمزامنة الآمنة ستتاح بعد ربط Firebase.')),
+                  const ParentConnectionPage()),
                   icon: const Icon(Icons.settings_rounded)),
               ]),
               const SizedBox(height: 18),
