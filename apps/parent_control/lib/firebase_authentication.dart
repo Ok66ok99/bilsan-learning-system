@@ -9,6 +9,7 @@ class FirebaseBootstrap {
   static const appId = String.fromEnvironment('BILSAN_FIREBASE_APP_ID');
   static const senderId = String.fromEnvironment('BILSAN_FIREBASE_SENDER_ID');
   static const projectId = String.fromEnvironment('BILSAN_FIREBASE_PROJECT_ID');
+  static bool initialized = false;
   static bool get configured => apiKey.isNotEmpty && appId.isNotEmpty &&
       senderId.isNotEmpty && projectId.isNotEmpty;
 
@@ -19,6 +20,7 @@ class FirebaseBootstrap {
       projectId: projectId,
     ));
     await FirebaseAppCheck.instance.activate(androidProvider: AndroidProvider.playIntegrity);
+    initialized = true;
     return true;
   }
 }
@@ -106,7 +108,7 @@ class ParentConnectionPage extends StatelessWidget {
       body: Center(child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Padding(padding: const EdgeInsets.all(24),
-          child: FirebaseBootstrap.configured
+          child: FirebaseBootstrap.initialized
             ? StreamBuilder<User?>(
                 stream: FirebaseAuth.instance.authStateChanges(),
                 builder: (context, snapshot) {
