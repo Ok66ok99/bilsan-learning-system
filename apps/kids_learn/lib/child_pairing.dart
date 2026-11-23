@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChildFirebase {
   static const apiKey = String.fromEnvironment('BILSAN_FIREBASE_API_KEY');
@@ -62,7 +63,15 @@ class _ChildPairingPageState extends State<ChildPairingPage> {
     try {
       final result = await functions.httpsCallable('getPairingStatus')
           .call({'code': currentCode});
-      if (mounted) setState(() => status = (result.data as Map)['status'] as String);
+      final data = result.data as Map;
+      final nextStatus = data['status'] as String;
+      final prefs = await SharedPreferences.getInstance();
+      if (nextStatus == 'approved' && data['familyId'] is String) {
+        await prefs.setString('approved_family_id', data['familyId'] as String);
+      } else {
+        await prefs.remove('approved_family_id');
+      }
+      if (mounted) setState(() => status = nextStatus);
     } on FirebaseException catch (e) {
       if (mounted) setState(() => error = 'تعذر التحقق: ${e.code}');
     } catch (_) {
