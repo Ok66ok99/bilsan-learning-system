@@ -7,8 +7,13 @@ on:
       - main
     paths:
       - '.github/workflows/build-foundation.yml'
-      - 'apps/kids_learn/lib/**'
-      - 'apps/parent_control/lib/**'
+      - 'apps/kids_learn/**'
+      - 'apps/parent_control/**'
+      - 'tools/generate_icons.py'
+
+concurrency:
+  group: bilsan-android-foundation
+  cancel-in-progress: true
 
 permissions:
   contents: read
