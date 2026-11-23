@@ -1,0 +1,83 @@
+name: Bilsan Android APK (ZIP source)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '*.zip'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate and extract project ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$(find . -maxdepth 1 -type f -name '*.zip' | sort | head -n 1)"
+          test -n "$archive" || { echo "::error::Upload the Bilsan project ZIP into the repository root first."; exit 1; }
+          echo "Using: $archive"
+          mkdir -p .source
+          unzip -q "$archive" -d .source
+          test -f .source/bilsan-learning-system/tools/bootstrap_android.sh || { echo "::error::Invalid source ZIP structure."; exit 1; }
+          echo "PROJECT_ROOT=$GITHUB_WORKSPACE/.source/bilsan-learning-system" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Bootstrap both Android applications
+        shell: bash
+        run: |
+          cd "$PROJECT_ROOT"
+          bash tools/bootstrap_android.sh
+
+      - name: Check source formatting and tests
+        shell: bash
+        run: |
+          cd "$PROJECT_ROOT"
+          dart format --output=none --set-exit-if-changed apps/kids_learn/lib apps/parent_control/lib packages/bilsan_ui/lib packages/bilsan_characters/lib packages/bilsan_characters/test apps/kids_learn/test apps/parent_control/test
+          (cd packages/bilsan_ui && flutter analyze)
+          (cd packages/bilsan_characters && flutter analyze && flutter test)
+          (cd apps/kids_learn && flutter analyze && flutter test)
+          (cd apps/parent_control && flutter analyze && flutter test)
+
+      - name: Build Kids APK
+        shell: bash
+        run: |
+          cd "$PROJECT_ROOT/apps/kids_learn"
+          flutter build apk --debug
+
+      - name: Build Parent APK
+        shell: bash
+        run: |
+          cd "$PROJECT_ROOT/apps/parent_control"
+          flutter build apk --debug
+
+      - name: Upload Kids APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bilsan-kids-debug-apk
+          path: .source/bilsan-learning-system/apps/kids_learn/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload Parent APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bilsan-parent-debug-apk
+          path: .source/bilsan-learning-system/apps/parent_control/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
