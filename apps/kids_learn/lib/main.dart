@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'child_pairing.dart';
 import 'child_progress_sync.dart';
 import 'child_access_gate.dart';
+import 'activity_rotation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -290,6 +291,7 @@ class MathPage extends StatefulWidget{
 }
 class _MathState extends State<MathPage>{
   int step=0,correct=0,attempts=0;
+  int? lastTaskIndex;
   int? chosen;
   bool loaded=false;
 
@@ -305,6 +307,7 @@ class _MathState extends State<MathPage>{
       if (!mounted) return;
       setState(() {
         step=prefs.getInt('math_step') ?? 0;
+        lastTaskIndex=prefs.getInt('math_last_task_index');
         correct=prefs.getInt('math_correct') ?? 0;
         attempts=prefs.getInt('math_attempts') ?? 0;
         loaded=true;
@@ -325,9 +328,11 @@ class _MathState extends State<MathPage>{
   }
 
   Future<void> _nextQuestion() async {
-    setState(() {step++;chosen=null;});
+    final completedTask = _taskIndex;
+    setState(() {step++;lastTaskIndex=completedTask;chosen=null;});
     final prefs=await SharedPreferences.getInstance();
     await prefs.setInt('math_step',step);
+    await prefs.setInt('math_last_task_index',completedTask);
     if (ChildFirebase.configured) {
       try {
         await ChildProgressSync.queueCompletedQuestion(step);
@@ -337,10 +342,13 @@ class _MathState extends State<MathPage>{
     }
   }
   static const tasks=[(2,1),(3,2),(1,4),(5,1),(2,5)];
+  int get _taskIndex => ActivityRotation.nextIndex(
+    activityCount: tasks.length, completedCount: step,
+    previousIndex: lastTaskIndex);
   @override
   Widget build(BuildContext context){
-    final a=tasks[step%tasks.length].$1;
-    final b=tasks[step%tasks.length].$2;
+    final a=tasks[_taskIndex].$1;
+    final b=tasks[_taskIndex].$2;
     final result=a+b;
     final options=[result,result+1,math.max(result-1,0)]..shuffle(math.Random(step+19));
     return LessonShell(title:'صديق الأرقام',child:ListView(
