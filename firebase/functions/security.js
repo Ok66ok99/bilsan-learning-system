@@ -21,7 +21,7 @@ function codeHash(code) {
 }
 function attemptWindow(previous, now, windowMs, limit) {
   const last = previous?.windowStartedAt ?? 0;
-  const count = now - last >= 0 && now - last < windowMs ? previous.count ?? 0 : 0;
+  const count = now - last >= 0 && now - last < windowMs ? previous?.count ?? 0 : 0;
   return { allowed: count < limit, count: count + 1,
     windowStartedAt: count === 0 ? now : last };
 }
