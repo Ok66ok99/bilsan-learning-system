@@ -6,6 +6,7 @@ import 'child_pairing.dart';
 import 'child_progress_sync.dart';
 import 'child_access_gate.dart';
 import 'activity_rotation.dart';
+import 'drawing_lesson.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -392,43 +393,76 @@ class DrawingPage extends StatefulWidget {
   State<DrawingPage> createState()=>_DrawingState();
 }
 class _DrawingState extends State<DrawingPage>{
-  final strokes=<List<Offset>>[];
+  final session=DrawingSession(flowerLesson);
+  Color brushColor=rose;
+  void change(VoidCallback action)=>setState(action);
   @override
   Widget build(BuildContext context)=>LessonShell(title:'الرسم مع وردة',
     child:ListView(padding:const EdgeInsets.all(16),children:[
-      const Text('ارسمي بإصبعك فوق الخط الإرشادي 🎨',
-        textAlign:TextAlign.center,style:TextStyle(fontSize:20,color:navy,fontWeight:FontWeight.w900)),
-      const SizedBox(height:16),
+      Text(session.showReference?'شاهدي الزهرة ثم اضغطي ابدئي الرسم':
+        session.finished?'أحسنتِ! يمكنك تلوين رسمتك':
+        'الخطوة ${session.stepIndex+1}: ${session.currentStep!.label}',
+        textAlign:TextAlign.center,
+        style:const TextStyle(fontSize:20,color:navy,fontWeight:FontWeight.w900)),
+      const SizedBox(height:12),
       AspectRatio(aspectRatio:1,child:ClipRRect(
         borderRadius:BorderRadius.circular(26),
         child:Container(color:Colors.white,child:GestureDetector(
-          onPanStart:(d)=>setState(()=>strokes.add([d.localPosition])),
-          onPanUpdate:(d)=>setState((){
-            if(strokes.isNotEmpty)strokes.last.add(d.localPosition);
+          onPanStart:session.showReference?null:(d)=>change(()=>
+            session.strokes.add([d.localPosition])),
+          onPanUpdate:session.showReference?null:(d)=>change((){
+            if(session.strokes.isNotEmpty)session.strokes.last.add(d.localPosition);
           }),
-          child:CustomPaint(painter:DrawPainter(strokes),child:const SizedBox.expand()),
+          child:CustomPaint(
+            painter:DrawPainter(session.strokes,
+              guide:session.showReference?flowerLesson.steps:
+                session.tracing?flowerLesson.steps:
+                session.currentStep==null?const []:[session.currentStep!],
+              brushColor:brushColor),
+            child:const SizedBox.expand()),
         )),
       )),
-      const SizedBox(height:15),
-      FilledButton.icon(onPressed:()=>setState(strokes.clear),
-        icon:const Icon(Icons.refresh_rounded),label:const Text('ابدئي من جديد')),
       const SizedBox(height:12),
-      const Text('الرسم تفاعلي محليًا. حفظ الرسومات وتقييم تتبع الخطوط قيد التطوير.',
+      Wrap(spacing:8,runSpacing:8,alignment:WrapAlignment.center,children:[
+        FilledButton(onPressed:()=>change(()=>session.showReference=!session.showReference),
+          child:Text(session.showReference?'ابدئي الرسم':'إعادة عرض النموذج')),
+        if(!session.showReference) ...[
+          FilledButton.tonal(onPressed:()=>change(session.next),
+            child:Text(session.finished?'اكتملت الخطوات':'الخطوة التالية')),
+          OutlinedButton(onPressed:()=>change(session.undo),child:const Text('تراجع')),
+          OutlinedButton(onPressed:()=>change(()=>session.tracing=!session.tracing),
+            child:Text(session.tracing?'إخفاء التتبع':'تتبعي الرسم كاملًا')),
+          OutlinedButton(onPressed:()=>change(()=>session.coloring=!session.coloring),
+            child:Text(session.coloring?'إنهاء التلوين':'التلوين')),
+        ],
+        OutlinedButton(onPressed:()=>change(session.reset),child:const Text('إعادة من البداية')),
+      ]),
+      if(session.coloring) Wrap(alignment:WrapAlignment.center,children:[
+        for(final color in [rose,Colors.blue,Colors.green,Colors.orange,Colors.purple])
+          IconButton(onPressed:()=>change(()=>brushColor=color),
+            icon:Icon(Icons.circle,color:color),tooltip:'اختيار لون'),
+      ]),
+      const SizedBox(height:10),
+      const Text('الرسم واللوحة المرحلية يعملان محليًا. حفظ الرسومات ومزامنتها مع ولي الأمر لم يُنفّذا بعد.',
         textAlign:TextAlign.center,style:TextStyle(fontSize:12)),
     ]));
 }
 class DrawPainter extends CustomPainter {
-  const DrawPainter(this.strokes);
+  const DrawPainter(this.strokes,{this.guide=const [],this.brushColor=rose});
   final List<List<Offset>> strokes;
+  final List<DrawingStep> guide;
+  final Color brushColor;
   @override
   void paint(Canvas canvas,Size size){
-    final guide=Paint()..color=const Color(0x88E29EBB)..style=PaintingStyle.stroke..strokeWidth=3;
-    final r=math.min(size.width,size.height)*.3;
-    final c=Offset(size.width/2,size.height/2);
-    for(var i=0;i<40;i++){
-      canvas.drawArc(Rect.fromCircle(center:c,radius:r),2*math.pi*i/40,.09,false,guide);
+    final guidePaint=Paint()..color=const Color(0x99B42D80)
+      ..style=PaintingStyle.stroke..strokeWidth=3..strokeCap=StrokeCap.round;
+    for(final step in guide){
+      if(step.points.isEmpty)continue;
+      final path=Path()..moveTo(step.points.first.dx*size.width,step.points.first.dy*size.height);
+      for(final p in step.points.skip(1)){path.lineTo(p.dx*size.width,p.dy*size.height);}
+      canvas.drawPath(path,guidePaint);
     }
-    final brush=Paint()..color=rose..strokeWidth=7..strokeCap=StrokeCap.round
+    final brush=Paint()..color=brushColor..strokeWidth=7..strokeCap=StrokeCap.round
       ..strokeJoin=StrokeJoin.round..style=PaintingStyle.stroke;
     for(final stroke in strokes){
       if(stroke.length==1){canvas.drawCircle(stroke.first,3.5,brush);}
