@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'child_pairing.dart';
 import 'child_progress_sync.dart';
+import 'child_access_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +23,7 @@ class BilsanKidsApp extends StatelessWidget {
     debugShowCheckedModeBanner: false, title: 'عالم بيلسان',
     theme: ThemeData(useMaterial3: true, colorSchemeSeed: rose,
       fontFamily: 'sans-serif'),
-    home: const KidsHome(),
+    home: const ChildAccessGate(child: KidsHome()),
   );
 }
 
