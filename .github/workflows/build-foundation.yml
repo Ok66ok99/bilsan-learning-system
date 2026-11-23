@@ -82,6 +82,12 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos lib/main.dart
 
+      - name: Test child and parent screens
+        shell: bash
+        run: |
+          (cd apps/kids_learn && flutter test test/widget_test.dart)
+          (cd apps/parent_control && flutter test test/widget_test.dart)
+
       - name: Build child debug APK
         shell: bash
         run: |
