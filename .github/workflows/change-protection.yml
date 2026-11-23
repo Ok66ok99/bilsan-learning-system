@@ -1,0 +1,22 @@
+name: Bilsan Change Protection — No APK
+on:
+  push:
+    branches:
+      - development/**
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check approved requirement IDs, identity and mascot assets
+        run: python3 tools/requirements_guard.py
+      - name: Explain protection scope
+        run: |
+          echo "This workflow validates the requirements ledger and basic identity."
+          echo "It does not build APKs or certify incomplete features."
+          echo "Changes to the ledger itself still require owner review."
