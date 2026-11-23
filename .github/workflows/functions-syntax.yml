@@ -16,5 +16,9 @@ jobs:
           node-version: '20'
       - name: Verify callable functions JavaScript syntax
         run: node --check firebase/functions/index.js
+      - name: Verify security module syntax
+        run: node --check firebase/functions/security.js
+      - name: Run pairing and Gemini security tests
+        run: node --test firebase/functions/test/*.test.js
       - name: Verify functions package manifest
         run: node -e "const p=require('./firebase/functions/package.json'); if(!p.dependencies['firebase-admin'] || !p.dependencies['firebase-functions']) process.exit(1)"
