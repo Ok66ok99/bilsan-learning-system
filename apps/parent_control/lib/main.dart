@@ -55,7 +55,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
               Row(children: [
                 Container(width: 46,height:46,decoration:BoxDecoration(
                   color:Colors.white,borderRadius:BorderRadius.circular(16)),
-                  child:const Icon(Icons.favorite_rounded,color:purple,size:28)),
+                  child:ClipOval(child:Image.asset('assets/kidoza.webp',width:46,height:46,fit:BoxFit.cover))),
                 const SizedBox(width: 10),
                 const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,children: [
                   Text('متابعة طفلتي',style:TextStyle(
@@ -78,7 +78,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                   child: Column(crossAxisAlignment:CrossAxisAlignment.start,children: [
                     const Row(children: [
                       CircleAvatar(radius:24,backgroundColor:Color(0x66FFFFFF),
-                        child:Text('👧',style:TextStyle(fontSize:28))),
+                        child:Icon(Icons.school_rounded,color:Colors.white,size:28)),
                       SizedBox(width:12),
                       Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
                         children: [
@@ -330,7 +330,7 @@ class _GreetingCardState extends State<GreetingCardEditor> {
               const Positioned(top:12,right:18,child:Text('✨',style:TextStyle(fontSize:30))),
               const Align(alignment:Alignment.topCenter,
                 child:Padding(padding:EdgeInsets.only(top:8),
-                  child:Text('🐱 💝',style:TextStyle(fontSize:49)))),
+                  child:Row(mainAxisSize:MainAxisSize.min,children:[ClipOval(child:Image.asset('assets/kidoza.webp',width:63,height:63,fit:BoxFit.cover)),const Text(' 💝',style:TextStyle(fontSize:34))]))),
               Align(alignment:Alignment.center,child:Padding(
                 padding:const EdgeInsets.fromLTRB(26,45,26,12),
                 child:Container(width:double.infinity,padding:const EdgeInsets.all(18),
