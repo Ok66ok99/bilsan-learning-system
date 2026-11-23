@@ -91,3 +91,52 @@ class _ParentSignInPageState extends State<ParentSignInPage> {
     ),
   );
 }
+
+class ParentConnectionPage extends StatelessWidget {
+  const ParentConnectionPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      appBar: AppBar(title: const Text('الحساب والربط')),
+      body: Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(padding: const EdgeInsets.all(24),
+          child: FirebaseBootstrap.configured
+            ? StreamBuilder<User?>(
+                stream: FirebaseAuth.instance.authStateChanges(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('تعذر التحقق من جلسة الحساب');
+                  }
+                  final user = snapshot.data;
+                  return Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(user == null ? 'لم يتم تسجيل الدخول'
+                        : 'تم تسجيل الدخول: ${user.email ?? "حساب ولي الأمر"}'),
+                    const SizedBox(height: 16),
+                    if (user == null)
+                      FilledButton(
+                        onPressed: () => Navigator.push(context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ParentSignInPage())),
+                        child: const Text('تسجيل دخول ولي الأمر'))
+                    else
+                      OutlinedButton(
+                        onPressed: () => FirebaseAuth.instance.signOut(),
+                        child: const Text('تسجيل الخروج')),
+                    const SizedBox(height: 20),
+                    const Text('ربط جهاز الطفلة غير متاح حتى تفعيل '
+                      'خدمة الموافقة الآمنة من الخادم.'),
+                  ]);
+                })
+            : const Text('إعداد Firebase غير مكتمل في نسخة البناء. '
+                'لم يتم الاتصال بالخدمة، ولا يمكن تسجيل الدخول أو ربط جهاز.'),
+        ),
+      )),
+    ),
+  );
+}
