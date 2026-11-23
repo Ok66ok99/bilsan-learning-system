@@ -103,6 +103,24 @@ class _ParentPairingPageState extends State<ParentPairingPage> {
           OutlinedButton(
             onPressed: busy || familyId == null ? null : () => run(() => refreshDevices(familyId!)),
             child: const Text('تحديث قائمة الأجهزة')),
+          const SizedBox(height: 18),
+          const Text('التقدم الدراسي المسجل على الخادم:'),
+          if (familyId != null) StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance.collection('families')
+              .doc(familyId).collection('progress').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return const Text('تعذر قراءة التقدم الدراسي');
+              if (!snapshot.hasData) return const LinearProgressIndicator();
+              if (snapshot.data!.docs.isEmpty) return const Text('لم يُسجل تقدم متزامن بعد');
+              return Column(children: [
+                for (final doc in snapshot.data!.docs)
+                  ListTile(
+                    title: Text('جهاز: ${doc.id.length > 8 ? doc.id.substring(0, 8) : doc.id}'),
+                    subtitle: Text('الدروس المكتملة: ${doc.data()['completedCount'] ?? 0}'),
+                  ),
+              ]);
+            },
+          ),
         ]),
       )),
     ),
