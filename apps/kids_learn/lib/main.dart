@@ -2,8 +2,15 @@ import 'dart:math' as math;
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'child_pairing.dart';
 
-void main() => runApp(const BilsanKidsApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try { await ChildFirebase.initialize(); } catch (_) {
+    // Stay offline; do not falsely claim pairing or Firebase connectivity.
+  }
+  runApp(const BilsanKidsApp());
+}
 const rose = Color(0xFFB42D80), ink = Color(0xFF3F315A);
 const navy = Color(0xFF44366E);
 
@@ -32,7 +39,10 @@ class KidsHome extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 920),
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 15, 16, 20), children: [
             Row(children: [
-              const Text('👑', style: TextStyle(fontSize: 35)),
+              IconButton(
+                tooltip: 'ربط جهاز بيلسان',
+                onPressed: () => open(context, const ChildPairingPage()),
+                icon: const Icon(Icons.phonelink_lock, size: 30)),
               const Spacer(),
               Column(children: [
                 Text('عالم بيلسان', style: TextStyle(fontSize: wide ? 36 : 29,
