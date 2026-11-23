@@ -17,6 +17,8 @@ jobs:
         run: python3 tools/requirements_guard.py
       - name: Prove guard rejects deliberate regressions in temporary copies
         run: python3 tools/test_requirements_guard.py
+      - name: Validate phase-one audit coverage
+        run: python3 tools/check_phase01_audit.py
       - name: Explain protection scope
         run: |
           echo "This workflow validates the requirements ledger and basic identity."
