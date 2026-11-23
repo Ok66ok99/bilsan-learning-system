@@ -1,0 +1,31 @@
+name: Prepare Firebase deployment (no publish)
+on:
+  push:
+    branches: [development/bilsan-v1]
+    paths:
+      - 'firebase/**'
+      - '.github/workflows/firebase-deploy-ready.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+      - name: Validate functions package
+        working-directory: firebase/functions
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify JavaScript
+        run: node --check firebase/functions/index.js
+      - name: Verify deploy manifest
+        run: |
+          node -e "const c=require('./firebase/firebase.json');if(!c.firestore?.rules||!c.functions?.length)process.exit(1)"
+          test -f firebase/firestore.rules
+      - name: Show deploy CLI version
+        run: firebase --version
+      - name: No deployment performed
+        run: echo "Validation only. No Firebase deploy, no APK, no production changes."
