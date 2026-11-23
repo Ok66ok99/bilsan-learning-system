@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +49,8 @@ class _ChildAccessGateState extends State<ChildAccessGate>
         return;
       }
       final result = await FirebaseFunctions.instanceFor(region: 'us-central1')
-          .httpsCallable('verifyDeviceAccess').call({'familyId': familyId});
+          .httpsCallable('verifyDeviceAccess').call({'familyId': familyId})
+          .timeout(const Duration(seconds: 10));
       final verification = DeviceAccessPolicy.fromServerResponse(
           (result.data as Map)['approved']);
       final allowed = DeviceAccessPolicy.canOpenLessons(verification);
@@ -57,7 +59,11 @@ class _ChildAccessGateState extends State<ChildAccessGate>
         await prefs.remove('math_progress_pending');
       }
       if (allowed) {
-        try { await ChildProgressSync.flushPending(); } catch (_) {}
+        try {
+          await ChildProgressSync.flushPending().timeout(const Duration(seconds: 3));
+        } catch (_) {
+          // Approval is already verified; pending progress remains for retry.
+        }
       }
       if (mounted) setState(() {
         approved = allowed;
