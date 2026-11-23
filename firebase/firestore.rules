@@ -1,10 +1,60 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Fail closed. Authentication alone never grants access to a family.
-    // Future family access must be authorized through server-verified membership.
-    match /{document=**} {
-      allow read, write: if false;
+    function signedIn() { return request.auth != null; }
+    function familyPath(familyId) { return /databases/$(database)/documents/families/$(familyId); }
+    function devicePath(familyId, deviceId) {
+      return /databases/$(database)/documents/families/$(familyId)/devices/$(deviceId);
     }
+    function owner(familyId) {
+      return signedIn() && exists(familyPath(familyId))
+        && get(familyPath(familyId)).data.ownerUid == request.auth.uid;
+    }
+    function approvedChild(familyId) {
+      return signedIn() && exists(devicePath(familyId, request.auth.uid))
+        && get(devicePath(familyId, request.auth.uid)).data.approved == true
+        && get(devicePath(familyId, request.auth.uid)).data.revoked != true;
+    }
+
+    // Family creation and ownership changes require trusted server Admin SDK.
+    match /families/{familyId} {
+      allow get: if owner(familyId);
+      allow list, create, update, delete: if false;
+
+      // Pairing approval/revocation must be performed by a trusted server.
+      match /devices/{deviceId} {
+        allow get, list: if owner(familyId);
+        allow create, update, delete: if false;
+      }
+
+      match /lessons/{lessonId} {
+        allow get, list: if owner(familyId) || approvedChild(familyId);
+        allow create, update, delete: if false;
+      }
+
+      match /progress/{progressId} {
+        allow get, list: if owner(familyId) || approvedChild(familyId);
+        allow create: if approvedChild(familyId)
+          && progressId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['deviceUid', 'completedCount', 'updatedAt'])
+          && request.resource.data.deviceUid == request.auth.uid
+          && request.resource.data.completedCount is int
+          && request.resource.data.completedCount >= 0
+          && request.resource.data.completedCount <= 100000
+          && request.resource.data.updatedAt == request.time;
+        allow update: if approvedChild(familyId)
+          && progressId == request.auth.uid
+          && resource.data.deviceUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completedCount', 'updatedAt'])
+          && request.resource.data.completedCount is int
+          && request.resource.data.completedCount >= resource.data.completedCount
+          && request.resource.data.completedCount <= 100000
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+
+      match /{other=**} { allow read, write: if false; }
+    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
