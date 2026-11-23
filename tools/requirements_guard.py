@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Detect accidental removal of approved Bilsan requirements and identity."""
 from pathlib import Path
-import re
 import sys
 
 root=Path(__file__).resolve().parents[1]
@@ -13,7 +12,7 @@ issues=[]
 for prefix,count in required.items():
     for number in range(1,count+1):
         key=f"{prefix}-{number:03}"
-        if len(re.findall(rf"(?m)^- {re.escape(key)} \\|",spec))!=1:
+        if sum(line.startswith(f'- {key} |') for line in spec.splitlines()) != 1:
             issues.append(f"Requirement missing or duplicated: {key}")
 apps=[
  ("apps/kids_learn/lib/main.dart","عالم بيلسان"),
