@@ -1,0 +1,29 @@
+name: Phase 2 Flutter Analysis
+on:
+  push:
+    branches: [development/bilsan-v1]
+    paths:
+      - 'apps/**'
+      - '.github/workflows/flutter-analysis.yml'
+  workflow_dispatch:
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [kids_learn, parent_control]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Fetch packages
+        working-directory: apps/${{ matrix.app }}
+        run: flutter pub get
+      - name: Dart static analysis
+        working-directory: apps/${{ matrix.app }}
+        run: flutter analyze --no-fatal-infos
+      - name: Flutter widget tests
+        working-directory: apps/${{ matrix.app }}
+        run: flutter test
