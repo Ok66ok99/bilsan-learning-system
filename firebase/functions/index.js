@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const crypto = require('node:crypto');
 admin.initializeApp();
 const db = admin.firestore();
-const region = 'me-central2';
+const region = 'us-central1';
 const options = { region, enforceAppCheck: true, maxInstances: 10 };
 
 function uidOf(request) {
@@ -26,6 +26,8 @@ async function parentFamily(uid, familyId) {
 
 exports.createFamily = onCall(options, async request => {
   const uid = uidOf(request);
+  if (request.auth.token.firebase?.sign_in_provider !== 'password')
+    throw new HttpsError('permission-denied', 'Parent email/password sign-in required');
   const ownerRef = db.doc('parentFamilies/' + uid);
   return db.runTransaction(async tx => {
     const owner = await tx.get(ownerRef);
@@ -58,6 +60,8 @@ exports.requestPairing = onCall(options, async request => {
 
 exports.approvePairing = onCall(options, async request => {
   const uid = uidOf(request);
+  if (request.auth.token.firebase?.sign_in_provider !== 'password')
+    throw new HttpsError('permission-denied', 'Parent sign-in required');
   const familyId = requireString(request.data?.familyId, 'familyId');
   const code = requireString(request.data?.code, 'code', 8);
   if (!/^\d{8}$/.test(code)) throw new HttpsError('invalid-argument', 'Invalid code');
@@ -84,6 +88,8 @@ exports.approvePairing = onCall(options, async request => {
 
 exports.revokeDevice = onCall(options, async request => {
   const uid = uidOf(request);
+  if (request.auth.token.firebase?.sign_in_provider !== 'password')
+    throw new HttpsError('permission-denied', 'Parent sign-in required');
   const familyId = requireString(request.data?.familyId, 'familyId');
   const deviceUid = requireString(request.data?.deviceUid, 'deviceUid');
   const familyRef = await parentFamily(uid, familyId);
@@ -97,11 +103,5 @@ exports.revokeDevice = onCall(options, async request => {
   return { revoked: true };
 });
 
-exports.getPairingStatus = onCall(options, async request => {
-  const uid = uidOf(request);
-  const snapshot = await db.collectionGroup('devices')
-    .where(admin.firestore.FieldPath.documentId(), '==', uid).limit(10).get();
-  const active = snapshot.docs.find(doc => doc.get('approved') === true &&
-    doc.get('revoked') !== true);
-  return { approved: Boolean(active), familyId: active?.ref.parent.parent?.id ?? null };
-});
+// Child pairing status requires a server-issued family-scoped lookup token.
+// Do not implement an unscoped collection-group scan for device UIDs.
