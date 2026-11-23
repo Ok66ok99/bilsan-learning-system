@@ -21,6 +21,6 @@ audit_line = next(line for line in audit.splitlines() if line.startswith("| KID-
 for character in characters:
     assert character in kid_line and character in audit_line, f"Missing approved character: {character}"
 assert "11 شخصية تخص مشروع كيدوزا" in audit, "Separate Kidoza project scope must be explicit"
-assert "المرحلة الأولى لم تُعتمد بعد" in audit, "Audit must not claim owner approval"
+assert "المرحلة الأولى معتمدة من ناحية حصر المتطلبات" in audit, "Audit approval must be explicit and scoped"
 print(f"PASS: audited {len(ids)} locked requirements and {len(extras)} additional agreements")
 print("NOTE: completeness of documentation is not proof of feature implementation")
