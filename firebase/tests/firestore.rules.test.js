@@ -189,3 +189,60 @@ test('approved children cannot read another child progress or list family progre
   await assertSucceeds(parent.doc('families/family-a/progress/child-b').get());
   await assertSucceeds(parent.collection('families/family-a/progress').get());
 });
+
+test('child drawing is saved and readable by its own parent, but not other families', async () => {
+  const child = env.authenticatedContext('child-a').firestore();
+  const drawing = child.doc('families/family-a/drawings/child-a');
+  const payload = {
+    deviceUid: 'child-a',
+    items: [{ id: 'flower-1', createdAt: '2026-11-24T00:00:00Z',
+      strokes: [[[0.1, 0.2], [0.3, 0.4]]] }],
+    updatedAt: serverTimestamp(),
+  };
+  await assertSucceeds(drawing.set(payload));
+  const parent = env.authenticatedContext('parent-a').firestore();
+  const saved = await assertSucceeds(parent.doc('families/family-a/drawings/child-a').get());
+  expect(saved.data().items[0].id).toBe('flower-1');
+  await assertSucceeds(parent.collection('families/family-a/drawings').get());
+  const stranger = env.authenticatedContext('parent-b').firestore();
+  await assertFails(stranger.doc('families/family-a/drawings/child-a').get());
+  await assertFails(stranger.collection('families/family-a/drawings').get());
+});
+
+test('drawing writes cannot impersonate another child or exceed archive limit', async () => {
+  const child = env.authenticatedContext('child-a').firestore();
+  const base = { deviceUid: 'child-a', items: [], updatedAt: serverTimestamp() };
+  await assertFails(child.doc('families/family-a/drawings/child-b').set(base));
+  await assertFails(child.doc('families/family-b/drawings/child-a').set(base));
+  await assertFails(child.doc('families/family-a/drawings/child-a').set({
+    ...base, deviceUid: 'child-b',
+  }));
+  await assertFails(child.doc('families/family-a/drawings/child-a').set({
+    ...base, items: Array.from({ length: 21 }, (_, i) => ({ id: String(i) })),
+  }));
+  await assertFails(child.doc('families/family-a/drawings/child-a').set({
+    ...base, ownerUid: 'parent-a',
+  }));
+  await assertFails(child.collection('families/family-a/drawings').get());
+});
+
+test('revocation prevents drawing upload and access, but parent keeps prior drawing', async () => {
+  const child = env.authenticatedContext('child-a').firestore();
+  const drawing = child.doc('families/family-a/drawings/child-a');
+  await assertSucceeds(drawing.set({
+    deviceUid: 'child-a', items: [{ id: 'before-revoke' }],
+    updatedAt: serverTimestamp(),
+  }));
+  await env.withSecurityRulesDisabled(async context => {
+    await context.firestore().doc('families/family-a/devices/child-a')
+      .update({ approved: false, revoked: true });
+  });
+  await assertFails(drawing.set({
+    deviceUid: 'child-a', items: [{ id: 'after-revoke' }],
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(drawing.get());
+  const parent = env.authenticatedContext('parent-a').firestore();
+  const saved = await assertSucceeds(parent.doc('families/family-a/drawings/child-a').get());
+  expect(saved.data().items[0].id).toBe('before-revoke');
+});
