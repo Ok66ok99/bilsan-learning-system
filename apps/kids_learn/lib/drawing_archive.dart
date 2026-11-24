@@ -13,18 +13,20 @@ class SavedDrawing {
   Map<String, dynamic> toJson() => {
     'id': id,
     'createdAt': createdAt,
-    'strokes': strokes.map((line) => line.map((p) => [
-      double.parse(p.dx.toStringAsFixed(4)),
-      double.parse(p.dy.toStringAsFixed(4)),
-    ]).toList()).toList(),
+    'strokes': strokes.map((line) => {
+      'points': line.map((p) => {
+        'x': double.parse(p.dx.toStringAsFixed(4)),
+        'y': double.parse(p.dy.toStringAsFixed(4)),
+      }).toList(),
+    }).toList(),
   };
 
   static SavedDrawing fromJson(Object? input) {
     final data = Map<String, dynamic>.from(input as Map);
     final lines = (data['strokes'] as List).map((raw) =>
-      (raw as List).map((point) {
-        final coords = point as List;
-        return Offset((coords[0] as num).toDouble(), (coords[1] as num).toDouble());
+      ((raw as Map)['points'] as List).map((point) {
+        final coords = point as Map;
+        return Offset((coords['x'] as num).toDouble(), (coords['y'] as num).toDouble());
       }).toList()).toList();
     return SavedDrawing(id: data['id'] as String,
       createdAt: data['createdAt'] as String, strokes: lines);
