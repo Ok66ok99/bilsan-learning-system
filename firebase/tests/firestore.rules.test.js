@@ -196,7 +196,7 @@ test('child drawing is saved and readable by its own parent, but not other famil
   const payload = {
     deviceUid: 'child-a',
     items: [{ id: 'flower-1', createdAt: '2026-11-24T00:00:00Z',
-      strokes: [[[0.1, 0.2], [0.3, 0.4]]] }],
+      strokes: [{ points: [{ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.4 }] }] }],
     updatedAt: serverTimestamp(),
   };
   await assertSucceeds(drawing.set(payload));
