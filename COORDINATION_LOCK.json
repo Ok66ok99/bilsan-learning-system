@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "state": "held",
-  "holder": "reviewer",
-  "runId": "reviewer-manual-operational-20261124T221433Z",
-  "acquiredAt": "2026-11-24T22:14:33Z",
-  "baseCodeSha": "77a3841472d075463fd994e624bdaf38c8fb4747"
+  "state": "free",
+  "holder": null,
+  "runId": null,
+  "acquiredAt": null,
+  "baseCodeSha": null
 }
