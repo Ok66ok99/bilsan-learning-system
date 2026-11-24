@@ -1,0 +1,25 @@
+# REVIEW_STATUS — 2026-11-24 — R-77a3841-01
+Decision: STOP (affected drawing archive and dependent expansion); HOLD all phase acceptance.
+Reviewed HEAD: 77a3841472d075463fd994e624bdaf38c8fb4747
+Contract blob: 5906a9734a9d1421814213c210ea3853c72b4e27
+Coverage: full contract including both appendices; recursive tree; first 100 commit history entries; latest 30 workflow summaries; direct source inspection of drawing archive/gallery/lesson, activity rotation, access gate/policy, Firestore rules, both pubspecs, prior phase-one audit. Not full historical diff or log audit.
+## Critical finding
+apps/kids_learn/lib/drawing_archive.dart uses global SharedPreferences key bilsan_drawings_v1; syncToParent reads all local drawings and writes to currently approved family/device. No immutable family ownership on SavedDrawing, no scoped local archive. child_access_gate.dart clears pending progress on rejection but not drawing archive. Re-pairing can expose old family drawings to new family; static code path, not reproduced on devices. Also take(20) silently discards old drawings; cloud set replaces entire device archive. STOP under owner delegation for potential cross-family disclosure/data loss. Do not modify code until owner approval. No production deployment verified.
+## Provisional requirement matrix
+All evidence at reviewed HEAD unless stated. P=partial, N=not implemented in inspected tree, U=unverified. No full acceptance.
+ID-001 U; ID-002 U (native paths exist, manifest/gradle not yet inspected); ID-003 P (WebP only, identity unverified); ID-004 U.
+KID-001 N; KID-002 P (prior audit, audio absent); KID-003 P (prior audit); KID-004 P (rotation and progress evidence); KID-005 N; KID-006 P (drawing_archive.dart); KID-007 U; KID-008 U; KID-009 P (progress files; offline gate blocks); KID-010 P (child_access_gate.dart); KID-011 N (no audio assets); KID-012 P (activity_rotation.dart); KID-013 P (drawing_lesson.dart, archive); KID-014 P (single original flower, device quality unverified).
+PAR-001 P (contract baseline local, no content writes in rules); PAR-002 P (progress count only in rules); PAR-003 U; PAR-004 P (gate/rules and pairing files); PAR-005 U; PAR-006 P (drawings_gallery.dart, fixed brush, no durable parent export); PAR-007 U; PAR-008 U.
+SYS-001 P; SYS-002 P (firestore.rules owner/device checks, local archive isolation fails); SYS-003 U; SYS-004 U; SYS-005 P (gate and rules; full offline learning conflicts).
+CUR-001 P; CUR-002 N (no content packs in tree); CUR-003 N; CNT-001 N; CNT-002 N; ART-001 P (archive stores coordinates only, fixed color gallery, global archive); CHR-001 N; VID-001 N; VID-002 N; SEC-006 P (rules allow approved child to read all family lessons, no publication predicate; archive isolation failure); SIZE-001 U; UI-001 U.
+VIS-001 N; VIS-002 N; VIS-003 N; VIS-004 U; VIS-005 U; VIS-006 U.
+## Workflow evidence
+https://github.com/Ok66ok99/bilsan-learning-system/actions/runs/45317458349 success, SHA 526cd76409c1ef4b94d1943a7c4fe7dee08bc0bc; https://github.com/Ok66ok99/bilsan-learning-system/actions/runs/45317450046 success and https://github.com/Ok66ok99/bilsan-learning-system/actions/runs/45317449599 success at 30c4053eae153d140628cb55883fad79805019bf. Latest change protection success https://github.com/Ok66ok99/bilsan-learning-system/actions/runs/45386267921. Summaries only, logs pending. No device tests.
+## Phase decisions
+1 HOLD: content schema, migration, pack rollback missing. 2 STOP/HOLD: archive isolation/data loss, offline policy conflict, full end-to-end absent. 3 HOLD: no expansion, limited flower/rotation, no 3D assets. Numerical ratings deferred until adequate coverage.
+## Corrections after explicit owner approval
+P0 scope drawings by immutable family/device, quarantine legacy archive without auto-upload, preserve drawings without silent truncation, test re-pair/revocation/offline replay and parent export. P1 reconcile offline access with secure revocation policy; gate currently unmounts lessons every minute even during successful verification. P1 enforce published/allowed lesson reads; versioned content and migration/rollback tests. P2 colors/aspect ratio and durable retry, then curriculum/visual gates.
+## Owner decision
+Authorize correction of STOP finding before developer writes code; choose secure offline authorization policy if needed. REVIEW_STATUS and DEVELOPER_STATUS were absent (404) at start. Coordination not yet proven.
+## Remaining
+Earlier history pages, individual diffs, full main.dart and backend/queue/tests, workflow job logs, branch comparison/protection, secret history, asset verification, full requirement evidence and device tests.
