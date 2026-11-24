@@ -74,13 +74,13 @@ class ArchivePainter extends CustomPainter {
     final brush=Paint()..color=const Color(0xFFB42D80)
       ..strokeWidth=5..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
     for(final line in raw as List){
-      if(line is! List || line.isEmpty)continue;
+      if(line is! Map || line['points'] is! List)continue;
       final path=Path();
       var first=true;
-      for(final item in line){
-        if(item is! List || item.length!=2 || item[0] is! num || item[1] is! num)continue;
-        final x=(item[0] as num).toDouble()*size.width;
-        final y=(item[1] as num).toDouble()*size.height;
+      for(final item in line['points'] as List){
+        if(item is! Map || item['x'] is! num || item['y'] is! num)continue;
+        final x=(item['x'] as num).toDouble()*size.width;
+        final y=(item['y'] as num).toDouble()*size.height;
         if(first){path.moveTo(x,y);first=false;}else{path.lineTo(x,y);}
       }
       canvas.drawPath(path,brush);
